@@ -20,6 +20,9 @@ import tools.train_utils.train_utils as train_utils
 from tools.train_utils.fastai_optim import OptimWrapper
 from tools.train_utils import learning_schedules_fastai as lsf
 
+import wandb
+from tools.utils.wandb_logger import WandbLogger
+
 parser = argparse.ArgumentParser(description = "arg parser")
 parser.add_argument('--cfg_file', type = str, default = 'cfgs/LI_Fusion_with_attention_use_ce_loss.yaml', help = 'specify the config for training')
 parser.add_argument("--train_mode", type = str, default = 'rpn', required = True, help = "specify the training mode")
@@ -50,6 +53,9 @@ parser.add_argument("--rcnn_eval_feature_dir", type = str, default = None,
 parser.add_argument('--set', dest = 'set_cfgs', default = None, nargs = argparse.REMAINDER,
                     help = 'set extra config keys if needed')
 parser.add_argument('--model_type', type = str, default = 'base', help = 'model type')
+
+parser.add_argument('--wandb', '-wb', action='store_true', help='use wandb')
+
 args = parser.parse_args()
 
 
@@ -188,6 +194,16 @@ if __name__ == "__main__":
     logger = create_logger(log_file)
     logger.info('**********************Start logging**********************')
 
+    name = args.output_dir.split('/log/')[-1].replace('/', '_')
+    init_kwargs = dict(project='EPNet', entity='kaist-url-ai28', name=name)
+    wandb_logger = WandbLogger(init_kwargs=init_kwargs,
+                               train_epoch_interval=1, train_iter_interval=100,
+                               val_epoch_interval=1, val_iter_interval=10,
+                               use_wandb=args.wandb)
+    print(f"WandB logger is {'' if args.wandb else 'not '}used.")
+    if args.wandb:
+        print(f"project: EPNet, entity:kaist-url-ai28, name:{name}")
+
     # log to file
     gpu_list = os.environ['CUDA_VISIBLE_DEVICES'] if 'CUDA_VISIBLE_DEVICES' in os.environ.keys() else 'ALL'
     logger.info('CUDA_VISIBLE_DEVICES=%s' % gpu_list)
@@ -258,11 +274,12 @@ if __name__ == "__main__":
             bnm_scheduler = bnm_scheduler,
             # model_fn_eval=train_functions.model_joint_fn_decorator(),
             model_fn_eval = fn_decorator,
-            tb_log = tb_log,
+            tb_log = None, # tb_log = tb_log,
             eval_frequency = 1,
             lr_warmup_scheduler = lr_warmup_scheduler,
             warmup_epoch = cfg.TRAIN.WARMUP_EPOCH,
-            grad_norm_clip = cfg.TRAIN.GRAD_NORM_CLIP
+            grad_norm_clip = cfg.TRAIN.GRAD_NORM_CLIP,
+            wandb_logger=wandb_logger,
     )
 
     trainer.train(

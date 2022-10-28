@@ -112,7 +112,7 @@ def load_part_ckpt(model, filename, logger = cur_logger, total_keys = -1):
 class Trainer(object):
     def __init__(self, model, model_fn, optimizer, ckpt_dir, lr_scheduler, bnm_scheduler,
                  model_fn_eval, tb_log, eval_frequency = 1, lr_warmup_scheduler = None, warmup_epoch = -1,
-                 grad_norm_clip = 1.0):
+                 grad_norm_clip = 1.0, wandb_logger=None):
         self.model, self.model_fn, self.optimizer, self.lr_scheduler, self.bnm_scheduler, self.model_fn_eval = \
             model, model_fn, optimizer, lr_scheduler, bnm_scheduler, model_fn_eval
 
@@ -122,6 +122,8 @@ class Trainer(object):
         self.lr_warmup_scheduler = lr_warmup_scheduler
         self.warmup_epoch = warmup_epoch
         self.grad_norm_clip = grad_norm_clip
+
+        self.wandb_logger = wandb_logger
 
     def _train_it(self, batch):
         self.model.train()
@@ -167,6 +169,9 @@ class Trainer(object):
 
     def train(self, start_it, start_epoch, n_epochs, train_loader, test_loader = None, ckpt_save_interval = 5,
               lr_scheduler_each_iter = False):
+        if self.wandb_logger is not None:
+            self.wandb_logger.before_run()
+
         eval_frequency = self.eval_frequency if self.eval_frequency > 0 else 1
 
         it = start_it
@@ -179,14 +184,20 @@ class Trainer(object):
 
                 if self.bnm_scheduler is not None:
                     self.bnm_scheduler.step(it)
-                    self.tb_log.add_scalar('bn_momentum', self.bnm_scheduler.lmbd(epoch), it)
+                    if self.tb_log is not None:
+                        self.tb_log.add_scalar('bn_momentum', self.bnm_scheduler.lmbd(epoch), it)
+                    if self.wandb_logger is not None:
+                        self.wandb_logger.add_data('bn_momentum', self.bnm_scheduler.lmbd(epoch))
 
                 # train one epoch
                 for cur_it, batch in enumerate(train_loader):
                     if lr_scheduler_each_iter:
                         self.lr_scheduler.step(it)
                         cur_lr = float(self.optimizer.lr)
-                        self.tb_log.add_scalar('learning_rate', cur_lr, it)
+                        if self.tb_log is not None:
+                            self.tb_log.add_scalar('learning_rate', cur_lr, it)
+                        if self.wandb_logger is not None:
+                            self.wandb_logger.add_data('learning_rate', cur_lr)
                     else:
                         if self.lr_warmup_scheduler is not None and epoch < self.warmup_epoch:
                             self.lr_warmup_scheduler.step(it)
@@ -211,6 +222,14 @@ class Trainer(object):
                         for key, val in tb_dict.items():
                             self.tb_log.add_scalar('train_' + key, val, it)
 
+                    if self.wandb_logger is not None:
+                        self.wandb_logger.add_data('train_loss', loss)
+                        self.wandb_logger.add_data('learning_rate', cur_lr)
+                        for key, val in tb_dict.items():
+                            self.wandb_logger.add_data(f'train_{key}', val)
+                        self.wandb_logger.add_data('train_iter', it)
+                        self.wandb_logger.after_train_iter()
+
                 # save trained model
                 trained_epoch = epoch + 1
                 if trained_epoch % ckpt_save_interval == 0:
@@ -230,6 +249,13 @@ class Trainer(object):
                             self.tb_log.add_scalar('val_loss', val_loss, it)
                             for key, val in eval_dict.items():
                                 self.tb_log.add_scalar('val_' + key, val, it)
+
+                        if self.wandb_logger is not None:
+                            self.wandb_logger.add_data('val_loss', val_loss)
+                            for key, val in eval_dict.items():
+                                self.wandb_logger.add_data('val_' + key, val)
+                            self.wandb_logger.add_data('val_iter', it)
+                            self.wandb_logger.after_val_epoch()
 
                 pbar.close()
                 pbar = tqdm.tqdm(total = len(train_loader), leave = False, desc = 'train')
