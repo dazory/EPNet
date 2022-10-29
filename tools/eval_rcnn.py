@@ -749,6 +749,7 @@ def eval_one_epoch_joint(model, dataloader, epoch_id, result_dir, logger, wandb_
 
     for key, val in ret_dict.items():
         wandb_logger.add_data(key, val)
+    wandb_logger.add_data('epoch', epoch_id)
     wandb_logger.after_val_epoch()
 
     return ret_dict
