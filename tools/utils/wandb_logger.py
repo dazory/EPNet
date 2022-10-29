@@ -47,9 +47,9 @@ class WandbLogger():
     def log(self, key, value):
         self.wandb.log({key, value})
 
-    def log_dict(self):
+    def log_dict(self, prefix='default'):
         for key, value in self.data.items():
-            self.wandb.log({key: value})
+            self.wandb.log({f"{prefix}/{key}": value})
 
     @wandb_used
     def import_wandb(self):
@@ -77,26 +77,26 @@ class WandbLogger():
     @wandb_used
     def before_train_epoch(self):
         if self.train_epoch % self.train_epoch_interval == 0:
-            self.log_dict()
+            self.log_dict('train')
         self.clear_data()
 
     @wandb_used
     def after_train_epoch(self):
         if self.train_epoch % self.train_epoch_interval == 0:
-            self.log_dict()
+            self.log_dict('train')
         self.clear_data()
         self.train_epoch += 1
 
     @wandb_used
     def before_val_epoch(self):
         if self.val_epoch % self.val_epoch_interval == 0:
-            self.log_dict()
+            self.log_dict('val')
         self.clear_data()
 
     @wandb_used
     def after_val_epoch(self):
         if self.val_epoch % self.val_epoch_interval == 0:
-            self.log_dict()
+            self.log_dict('val')
         self.clear_data()
         self.val_epoch += 1
 
@@ -104,25 +104,25 @@ class WandbLogger():
     @wandb_used
     def before_train_iter(self):
         if self.train_iter % self.train_iter_interval == 0:
-            self.log_dict()
+            self.log_dict('train')
         self.clear_data()
 
     @wandb_used
     def after_train_iter(self):
         if self.train_iter % self.train_iter_interval == 0:
-            self.log_dict()
+            self.log_dict('train')
         self.clear_data()
         self.train_iter += 1
 
     @wandb_used
     def before_val_iter(self):
         if self.val_iter % self.val_iter_interval == 0:
-            self.log_dict()
+            self.log_dict('val')
         self.clear_data()
 
     @wandb_used
     def after_val_iter(self):
         if self.val_iter % self.val_iter_interval == 0:
-            self.log_dict()
+            self.log_dict('val')
         self.clear_data()
         self.val_iter += 1
