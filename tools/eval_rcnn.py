@@ -746,6 +746,11 @@ def eval_one_epoch_joint(model, dataloader, epoch_id, result_dir, logger, wandb_
         ret_dict.update(ap_dict)
 
     logger.info('result is saved to: %s' % result_dir)
+
+    for key, val in ret_dict.items():
+        wandb_logger.add_data(key, val)
+    wandb_logger.after_val_epoch()
+
     return ret_dict
 
 
@@ -924,10 +929,6 @@ def repeat_eval_ckpt(root_result_dir, ckpt_dir, wandb_logger):
         with open(ckpt_record_file, 'a') as f:
             print('%s' % cur_epoch_id, file = f)
         logger.info('Epoch %s has been evaluated' % cur_epoch_id)
-
-        for key, val in tb_dict.items():
-            wandb_logger.add_data(key, val)
-        wandb_logger.after_val_epoch()
 
 
 def create_dataloader(logger):
