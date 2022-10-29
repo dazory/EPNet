@@ -22,6 +22,8 @@ import time
 from tensorboardX import SummaryWriter
 import tqdm
 
+from tools.utils.wandb_logger import WandbLogger
+
 np.random.seed(1024)  # set the same seed
 
 parser = argparse.ArgumentParser(description = "arg parser")
@@ -59,6 +61,8 @@ parser.add_argument('--set', dest = 'set_cfgs', default = None, nargs = argparse
                     help = 'set extra config keys if needed')
 
 parser.add_argument('--model_type', type = str, default = 'base', help = 'model type')
+
+parser.add_argument('--wandb', '-wb', action='store_true', help='use wandb')
 
 args = parser.parse_args()
 
@@ -117,7 +121,7 @@ def save_rpn_features(seg_result, rpn_scores_raw, pts_features, backbone_xyz, ba
     np.save(rpn_scores_raw_file, rpn_scores_raw)
 
 
-def eval_one_epoch_rpn(model, dataloader, epoch_id, result_dir, logger):
+def eval_one_epoch_rpn(model, dataloader, epoch_id, result_dir, logger, wandb_logger):
     np.random.seed(1024)
     mode = 'TEST' if args.test else 'EVAL'
 
@@ -275,7 +279,7 @@ def eval_one_epoch_rpn(model, dataloader, epoch_id, result_dir, logger):
     return ret_dict
 
 
-def eval_one_epoch_rcnn(model, dataloader, epoch_id, result_dir, logger):
+def eval_one_epoch_rcnn(model, dataloader, epoch_id, result_dir, logger, wandb_logger):
     np.random.seed(1024)
     MEAN_SIZE = torch.from_numpy(cfg.CLS_MEAN_SIZE[0]).cuda()
     mode = 'TEST' if args.test else 'EVAL'
@@ -443,7 +447,7 @@ def eval_one_epoch_rcnn(model, dataloader, epoch_id, result_dir, logger):
     progress_bar.close()
 
     # dump empty files
-    split_file = os.path.join(dataset.imageset_dir, '..', '..', 'ImageSets', dataset.split + '.txt')
+    split_file = os.path.join(dataset.imageset_dir, '..', 'ImageSets', dataset.split + '.txt')
     split_file = os.path.abspath(split_file)
     image_idx_list = [x.strip() for x in open(split_file).readlines()]
     empty_cnt = 0
@@ -495,7 +499,7 @@ def eval_one_epoch_rcnn(model, dataloader, epoch_id, result_dir, logger):
     return ret_dict
 
 
-def eval_one_epoch_joint(model, dataloader, epoch_id, result_dir, logger):
+def eval_one_epoch_joint(model, dataloader, epoch_id, result_dir, logger, wandb_logger):
     np.random.seed(666)
     MEAN_SIZE = torch.from_numpy(cfg.CLS_MEAN_SIZE[0]).cuda()
     mode = 'TEST' if args.test else 'EVAL'
@@ -691,7 +695,7 @@ def eval_one_epoch_joint(model, dataloader, epoch_id, result_dir, logger):
 
     progress_bar.close()
     # dump empty files
-    split_file = os.path.join(dataset.imageset_dir, '..', '..', 'ImageSets', dataset.split + '.txt')
+    split_file = os.path.join(dataset.imageset_dir, '..', 'ImageSets', dataset.split + '.txt')
     split_file = os.path.abspath(split_file)
     image_idx_list = [x.strip() for x in open(split_file).readlines()]
     empty_cnt = 0
@@ -745,13 +749,13 @@ def eval_one_epoch_joint(model, dataloader, epoch_id, result_dir, logger):
     return ret_dict
 
 
-def eval_one_epoch(model, dataloader, epoch_id, result_dir, logger):
+def eval_one_epoch(model, dataloader, epoch_id, result_dir, logger, wandb_logger):
     if cfg.RPN.ENABLED and not cfg.RCNN.ENABLED:
-        ret_dict = eval_one_epoch_rpn(model, dataloader, epoch_id, result_dir, logger)
+        ret_dict = eval_one_epoch_rpn(model, dataloader, epoch_id, result_dir, logger, wandb_logger)
     elif not cfg.RPN.ENABLED and cfg.RCNN.ENABLED:
-        ret_dict = eval_one_epoch_rcnn(model, dataloader, epoch_id, result_dir, logger)
+        ret_dict = eval_one_epoch_rcnn(model, dataloader, epoch_id, result_dir, logger, wandb_logger)
     elif cfg.RPN.ENABLED and cfg.RCNN.ENABLED:
-        ret_dict = eval_one_epoch_joint(model, dataloader, epoch_id, result_dir, logger)
+        ret_dict = eval_one_epoch_joint(model, dataloader, epoch_id, result_dir, logger, wandb_logger)
     else:
         raise NotImplementedError
     return ret_dict
@@ -848,7 +852,7 @@ def get_no_evaluated_ckpt(ckpt_dir, ckpt_record_file):
     return -1, None
 
 
-def repeat_eval_ckpt(root_result_dir, ckpt_dir):
+def repeat_eval_ckpt(root_result_dir, ckpt_dir, wandb_logger):
     root_result_dir = os.path.join(root_result_dir, 'eval', 'eval_all_' + args.extra_tag)
     os.makedirs(root_result_dir, exist_ok = True)
 
@@ -909,7 +913,7 @@ def repeat_eval_ckpt(root_result_dir, ckpt_dir):
 
         # start evaluation
         cur_result_dir = os.path.join(root_result_dir, 'epoch_%s' % cur_epoch_id, cfg.TEST.SPLIT)
-        tb_dict = eval_one_epoch(model, test_loader, cur_epoch_id, cur_result_dir, logger)
+        tb_dict = eval_one_epoch(model, test_loader, cur_epoch_id, cur_result_dir, logger, wandb_logger)
 
         step = int(float(cur_epoch_id))
         if step == float(cur_epoch_id):
@@ -921,10 +925,14 @@ def repeat_eval_ckpt(root_result_dir, ckpt_dir):
             print('%s' % cur_epoch_id, file = f)
         logger.info('Epoch %s has been evaluated' % cur_epoch_id)
 
+        for key, val in tb_dict.items():
+            wandb_logger.add_data(key, val)
+        wandb_logger.after_val_epoch()
+
 
 def create_dataloader(logger):
     mode = 'TEST' if args.test else 'EVAL'
-    DATA_PATH = os.path.join('../', 'data')
+    DATA_PATH = os.path.join('/ws/', 'data')
 
     # create dataloader
     test_set = KittiRCNNDataset(root_dir = DATA_PATH, npoints = cfg.RPN.NUM_POINTS, split = cfg.TEST.SPLIT, mode = mode,
@@ -948,10 +956,18 @@ if __name__ == "__main__":
         cfg_from_list(args.set_cfgs)
     cfg.TAG = os.path.splitext(os.path.basename(args.cfg_file))[0]
 
+    name = args.output_dir.split('/log/')[-1].replace('/', '_')
+    init_kwargs = dict(project='EPNet', entity='kaist-url-ai28', name=name)
+    wandb_logger = WandbLogger(init_kwargs=init_kwargs,
+                               train_epoch_interval=1, train_iter_interval=100,
+                               val_epoch_interval=1, val_iter_interval=10,
+                               use_wandb=args.wandb)
+    wandb_logger.before_run()
+
     if args.eval_mode == 'rpn':
         cfg.RPN.ENABLED = True
         cfg.RCNN.ENABLED = False
-        root_result_dir = os.path.join('../', 'output', 'rpn', cfg.TAG)
+        root_result_dir = os.path.join('/ws/data/', 'output', 'rpn', cfg.TAG)
         ckpt_dir = os.path.join('../', 'output', 'rpn', cfg.TAG, 'ckpt')
     elif args.eval_mode == 'rcnn':
         cfg.RCNN.ENABLED = True
@@ -984,6 +1000,6 @@ if __name__ == "__main__":
     with torch.no_grad():
         if args.eval_all:
             assert os.path.exists(ckpt_dir), '%s' % ckpt_dir
-            repeat_eval_ckpt(root_result_dir, ckpt_dir)
+            repeat_eval_ckpt(root_result_dir, ckpt_dir, wandb_logger)
         else:
             eval_single_ckpt(root_result_dir)
