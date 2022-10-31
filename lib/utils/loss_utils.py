@@ -329,6 +329,8 @@ def get_reg_loss(cls_score, mask_score, pred_reg, reg_label, loc_scope, loc_bin_
             reg_loss_dict['iou_branch_loss'] = iou_branch_loss.mean()
 
         if use_cls_score:
+            if iou_tmp.shape != cls_score.shape:
+                iou_tmp = iou_tmp.reshape(-1, 1).repeat(1, cls_score.shape[-1])
             iou_tmp = cls_score * iou_tmp
 
         if use_mask_score:
