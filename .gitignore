@@ -1,0 +1,12 @@
+.idea/*
+__pycache__
+lib/__pycache__/*
+lib/net/__pycache__/*
+lib/rpn/__pycache__/*
+lib/datasets/__pycache__/*
+lib/utils/iou3d/*
+lib/utils/roipool3d/*
+tools/kitti_object_eval_python/__pycache__/*
+tools/train_utils/__pycache__/*
+tools/wandb/*
+tools/log/*
