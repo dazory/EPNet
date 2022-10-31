@@ -24,6 +24,8 @@ import wandb
 from tools.utils.wandb_logger import WandbLogger
 from tools.utils.eval_rcnn import repeat_eval_ckpt, eval_single_ckpt
 
+parent_dir = '/ws/data/ai28/EPNet/'
+
 parser = argparse.ArgumentParser(description = "arg parser")
 parser.add_argument('--cfg_file', type = str, default = 'cfgs/LI_Fusion_with_attention_use_ce_loss.yaml', help = 'specify the config for training')
 parser.add_argument("--train_mode", type = str, default = 'rpn', required = True, help = "specify the training mode")
@@ -192,20 +194,20 @@ if __name__ == "__main__":
     if args.train_mode == 'rpn':
         cfg.RPN.ENABLED = True
         cfg.RCNN.ENABLED = False
-        root_result_dir = os.path.join('../', 'output', 'rpn', cfg.TAG)
+        root_result_dir = os.path.join(parent_dir, 'output', 'rpn', cfg.TAG)
     elif args.train_mode == 'rcnn':
         cfg.RCNN.ENABLED = True
         cfg.RPN.ENABLED = cfg.RPN.FIXED = True
-        root_result_dir = os.path.join('../', 'output', 'rcnn', cfg.TAG)
+        root_result_dir = os.path.join(parent_dir, 'output', 'rcnn', cfg.TAG)
     elif args.train_mode == 'rcnn_online':
         cfg.RCNN.ENABLED = True
         cfg.RPN.ENABLED = True
         cfg.RPN.FIXED = False
-        root_result_dir = os.path.join('../', 'output', 'rcnn', cfg.TAG)
+        root_result_dir = os.path.join(parent_dir, 'output', 'rcnn', cfg.TAG)
     elif args.train_mode == 'rcnn_offline':
         cfg.RCNN.ENABLED = True
         cfg.RPN.ENABLED = False
-        root_result_dir = os.path.join('../', 'output', 'rcnn', cfg.TAG)
+        root_result_dir = os.path.join(parent_dir, 'output', 'rcnn', cfg.TAG)
     else:
         raise NotImplementedError
 
@@ -321,24 +323,24 @@ if __name__ == "__main__":
     if args.eval_mode == 'rpn':
         cfg.RPN.ENABLED = True
         cfg.RCNN.ENABLED = False
-        root_result_dir = os.path.join('/ws/data/', 'output', 'rpn', cfg.TAG)
-        ckpt_dir = os.path.join('../', 'output', 'rpn', cfg.TAG, 'ckpt')
+        root_result_dir = os.path.join(parent_dir, 'output', 'rpn', cfg.TAG)
+        ckpt_dir = os.path.join(parent_dir, 'output', 'rpn', cfg.TAG, 'ckpt')
     elif args.eval_mode == 'rcnn':
         cfg.RCNN.ENABLED = True
         cfg.RPN.ENABLED = cfg.RPN.FIXED = True
-        root_result_dir = os.path.join('../', 'output', 'rcnn', cfg.TAG)
-        ckpt_dir = os.path.join('../', 'output', 'rcnn', cfg.TAG, 'ckpt')
+        root_result_dir = os.path.join(parent_dir, 'output', 'rcnn', cfg.TAG)
+        ckpt_dir = os.path.join(parent_dir, 'output', 'rcnn', cfg.TAG, 'ckpt')
     elif args.eval_mode == 'rcnn_online':
         cfg.RCNN.ENABLED = True
         cfg.RPN.ENABLED = True
         cfg.RPN.FIXED = False
-        root_result_dir = os.path.join('../', 'output', 'rcnn', cfg.TAG)
-        ckpt_dir = os.path.join('../', 'output', 'rcnn', cfg.TAG, 'ckpt')
+        root_result_dir = os.path.join(parent_dir, 'output', 'rcnn', cfg.TAG)
+        ckpt_dir = os.path.join(parent_dir, 'output', 'rcnn', cfg.TAG, 'ckpt')
     elif args.eval_mode == 'rcnn_offline':
         cfg.RCNN.ENABLED = True
         cfg.RPN.ENABLED = False
-        root_result_dir = os.path.join('../', 'output', 'rcnn', cfg.TAG)
-        ckpt_dir = os.path.join('../', 'output', 'rcnn', cfg.TAG, 'ckpt')
+        root_result_dir = os.path.join(parent_dir, 'output', 'rcnn', cfg.TAG)
+        ckpt_dir = os.path.join(parent_dir, 'output', 'rcnn', cfg.TAG, 'ckpt')
         assert args.rcnn_eval_roi_dir is not None and args.rcnn_eval_feature_dir is not None
     else:
         raise NotImplementedError

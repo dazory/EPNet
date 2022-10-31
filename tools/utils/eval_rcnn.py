@@ -777,7 +777,7 @@ def eval_single_ckpt(root_result_dir, args):
     save_config_to_file(cfg, logger = logger)
 
     # create dataloader & network
-    test_loader = create_dataloader(logger)
+    test_loader = create_dataloader(logger, args)
     # model = PointRCNN(num_classes=test_loader.dataset.num_class, use_xyz=True, mode='TEST')
     if args.model_type == 'base':
         model = PointRCNN(num_classes = test_loader.dataset.num_class, use_xyz = True, mode = 'TEST')
@@ -794,10 +794,10 @@ def eval_single_ckpt(root_result_dir, args):
     os.system('cp ../lib/datasets/kitti_rcnn_dataset.py %s/' % backup_dir)
 
     # load checkpoint
-    load_ckpt_based_on_args(model, logger)
+    load_ckpt_based_on_args(model, logger, args)
 
     # start evaluation
-    eval_one_epoch(model, test_loader, epoch_id, root_result_dir, logger)
+    eval_one_epoch(model, test_loader, epoch_id, root_result_dir, logger, args)
 
 
 def get_no_evaluated_ckpt(ckpt_dir, ckpt_record_file, args):
@@ -830,7 +830,7 @@ def repeat_eval_ckpt(root_result_dir, ckpt_dir, wandb_logger, args):
     save_config_to_file(cfg, logger = logger)
 
     # create dataloader & network
-    test_loader = create_dataloader(logger)
+    test_loader = create_dataloader(logger, args)
     # model = PointRCNN(num_classes=test_loader.dataset.num_class, use_xyz=True, mode='TEST')
     if args.model_type == 'base':
         model = PointRCNN(num_classes = test_loader.dataset.num_class, use_xyz = True, mode = 'TEST')
@@ -859,7 +859,7 @@ def repeat_eval_ckpt(root_result_dir, ckpt_dir, wandb_logger, args):
     first_eval = True
     while True:
         # check whether there is checkpoint which is not evaluated
-        cur_epoch_id, cur_ckpt = get_no_evaluated_ckpt(ckpt_dir, ckpt_record_file)
+        cur_epoch_id, cur_ckpt = get_no_evaluated_ckpt(ckpt_dir, ckpt_record_file, args)
         if cur_epoch_id == -1 or int(float(cur_epoch_id)) < args.start_epoch:
             wait_second = 30
             print('Wait %s second for next check: %s' % (wait_second, ckpt_dir))
@@ -877,7 +877,7 @@ def repeat_eval_ckpt(root_result_dir, ckpt_dir, wandb_logger, args):
 
         # start evaluation
         cur_result_dir = os.path.join(root_result_dir, 'epoch_%s' % cur_epoch_id, cfg.TEST.SPLIT)
-        tb_dict = eval_one_epoch(model, test_loader, cur_epoch_id, cur_result_dir, logger, wandb_logger)
+        tb_dict = eval_one_epoch(model, test_loader, cur_epoch_id, cur_result_dir, logger, wandb_logger, args)
 
         step = int(float(cur_epoch_id))
         if step == float(cur_epoch_id):
