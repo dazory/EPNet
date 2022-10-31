@@ -669,15 +669,16 @@ def get_official_eval_result(gt_annos, dt_annos, current_classes):
                 result += print_str((f"aos  AP:{mAPaos[j, 0, i]:.2f}, "
                                      f"{mAPaos[j, 1, i]:.2f}, "
                                      f"{mAPaos[j, 2, i]:.2f}"))
-    ret_dict['Car_3d_easy'] = mAP3d[0, 0, 0]
-    ret_dict['Car_3d_moderate'] = mAP3d[0, 1, 0]
-    ret_dict['Car_3d_hard'] = mAP3d[0, 2, 0]
-    ret_dict['Car_bev_easy'] = mAPbev[0, 0, 0]
-    ret_dict['Car_bev_moderate'] = mAPbev[0, 1, 0]
-    ret_dict['Car_bev_hard'] = mAPbev[0, 2, 0]
-    ret_dict['Car_image_easy'] = mAPbbox[0, 0, 0]
-    ret_dict['Car_image_moderate'] = mAPbbox[0, 1, 0]
-    ret_dict['Car_image_hard'] = mAPbbox[0, 2, 0]
+
+    difficulty_list = {0: 'easy', 1: 'moderate', 2: 'hard'}
+    idx = 0
+    for j, curcls in enumerate(current_classes):
+        class_name = class_to_name[curcls]
+        for d, difficulty in difficulty_list.items():
+            ret_dict[f'{class_name}_3d_{difficulty}'] = mAP3d[idx, d, 0]
+            ret_dict[f'{class_name}_bev_{difficulty}'] = mAPbev[idx, d, 0]
+            ret_dict[f'{class_name}_image_{difficulty}'] = mAPbbox[idx, d, 0]
+        idx += 1
 
     return result, ret_dict
 
