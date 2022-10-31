@@ -205,14 +205,15 @@ def model_joint_fn_decorator():
             cls_valid_mask = (cls_label_flat >= 0).float()
             rcnn_loss_cls = (batch_loss_cls * cls_valid_mask).sum() / torch.clamp(cls_valid_mask.sum(), min = 1.0)
 
-        elif cfg.TRAIN.LOSS_CLS == 'CrossEntropy':
-            rcnn_cls_reshape = rcnn_cls.view(rcnn_cls.shape[0], -1)
+        elif cfg.RCNN.LOSS_CLS == 'CrossEntropy':
+            rcnn_cls_flat = rcnn_cls.view(rcnn_cls.shape[0], -1)
             cls_target = cls_label_flat.long()
             cls_valid_mask = (cls_label_flat >= 0).float()
 
-            batch_loss_cls = cls_loss_func(rcnn_cls_reshape, cls_target)
+            batch_loss_cls = cls_loss_func(rcnn_cls_flat, cls_target)
             normalizer = torch.clamp(cls_valid_mask.sum(), min = 1.0)
-            rcnn_loss_cls = (batch_loss_cls.mean(dim = 1) * cls_valid_mask).sum() / normalizer
+            # rcnn_loss_cls = (batch_loss_cls.mean(dim = 1) * cls_valid_mask).sum() / normalizer
+            rcnn_loss_cls = (batch_loss_cls * cls_valid_mask).sum() / normalizer
 
         else:
             raise NotImplementedError

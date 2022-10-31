@@ -124,7 +124,7 @@ RCNN:
     REG_FC: [512, 512] #[256, 256]
 
     # config of training
-    LOSS_CLS: BinaryCrossEntropy
+    LOSS_CLS: CrossEntropy
     FOCAL_ALPHA: [0.25, 0.75]
     FOCAL_GAMMA: 2.0
     CLS_WEIGHT: [1.0, 1.0, 1.0]
