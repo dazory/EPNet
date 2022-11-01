@@ -543,10 +543,11 @@ def eval_one_epoch_joint(model, dataloader, epoch_id, result_dir, logger, wandb_
             norm_scores = torch.sigmoid(raw_scores)
             pred_classes = (norm_scores > cfg.RCNN.SCORE_THRESH).long()
         else:
-            pred_classes = torch.argmax(rcnn_cls, dim = 1).view(-1)
-            cls_norm_scores = F.softmax(rcnn_cls, dim = 1)
-            raw_scores = rcnn_cls[:, pred_classes]
-            norm_scores = cls_norm_scores[:, pred_classes]
+            max_rcnn_cls = rcnn_cls.max(dim=-1, keepdim=True)
+            raw_scores = max_rcnn_cls.values
+            pred_classes = max_rcnn_cls.indices
+            cls_norm_scores = F.softmax(rcnn_cls, dim=-1)  # (2, 100, 3)
+            norm_scores = cls_norm_scores.max(dim=-1, keepdim=True).values
 
         # evaluation
         recalled_num = gt_num = rpn_iou = 0
@@ -592,6 +593,9 @@ def eval_one_epoch_joint(model, dataloader, epoch_id, result_dir, logger, wandb_
                     union = fg_mask.sum().float() + (seg_result > 0).sum().float() - correct
                     rpn_iou = correct / torch.clamp(union, min = 1.0)
                     total_rpn_iou += rpn_iou.item()
+
+                if args.debug:
+                    break
 
         disp_dict = { 'mode': mode, 'recall': '%d/%d' % (total_recalled_bbox_list[3], total_gt_bbox) }
         progress_bar.set_postfix(disp_dict)
@@ -650,6 +654,11 @@ def eval_one_epoch_joint(model, dataloader, epoch_id, result_dir, logger, wandb_
             image_shape = dataset.get_image_shape(cur_sample_id)
             save_kitti_format(cur_sample_id, calib, pred_boxes3d_selected, final_output_dir, scores_selected,
                               image_shape)
+            if args.debug:
+                break
+
+        if args.debug:
+            break
 
     progress_bar.close()
     # dump empty files
@@ -888,6 +897,9 @@ def repeat_eval_ckpt(root_result_dir, ckpt_dir, wandb_logger, args):
         with open(ckpt_record_file, 'a') as f:
             print('%s' % cur_epoch_id, file = f)
         logger.info('Epoch %s has been evaluated' % cur_epoch_id)
+
+        if args.debug:
+            break
 
 
 def create_dataloader(logger, args):
