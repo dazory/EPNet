@@ -488,7 +488,7 @@ def eval_one_epoch_rcnn(model, dataloader, epoch_id, result_dir, logger, wandb_l
 
     if cfg.TEST.SPLIT != 'test':
         logger.info('Averate Precision:')
-        name_to_class = { 'Car': 0, 'Pedestrian': 1, 'Cyclist': 2 }
+        name_to_class = { 'Car': 0, 'Pedestrian': 1, 'Cyclist': 2, 'AI28': ['Pedestrian', 'Car']}
         ap_result_str, ap_dict = kitti_evaluate(dataset.label_dir, final_output_dir, label_split_file = split_file,
                                                 current_class = name_to_class[cfg.CLASSES])
         logger.info(ap_result_str)
@@ -744,7 +744,7 @@ def eval_one_epoch_joint(model, dataloader, epoch_id, result_dir, logger, wandb_
 
     if cfg.TEST.SPLIT != 'test':
         logger.info('Averate Precision:')
-        name_to_class = { 'Car': 0, 'Pedestrian': 1, 'Cyclist': 2 }
+        name_to_class = { 'Car': 0, 'Pedestrian': 1, 'Cyclist': 2, 'AI28': ['Pedestrian', 'Car'] }
         ap_result_str, ap_dict = kitti_evaluate(dataset.label_dir, final_output_dir, label_split_file = split_file,
                                                 current_class = name_to_class[cfg.CLASSES])
         logger.info(ap_result_str)
