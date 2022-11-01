@@ -81,6 +81,8 @@ parser.add_argument('--random_select', action = 'store_true', default = True,
 parser.add_argument('--start_epoch', default = 0, type = int, help = 'ignore the checkpoint smaller than this epoch')
 parser.add_argument('--max_waiting_mins', type=int, default=30, help='max waiting minutes')
 
+parser.add_argument('--debug', action='store_true', default=False)
+
 args = parser.parse_args()
 
 
