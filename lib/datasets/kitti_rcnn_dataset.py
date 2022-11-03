@@ -54,7 +54,9 @@ class KittiRCNNDataset(KittiDataset):
             self.classes = ('Background', 'Cyclist')
             aug_scene_root_dir = os.path.join(root_dir, 'KITTI', 'aug_scene_cyclist')
         elif classes == 'AI28':
-            self.classes = ('Background', 'Pedestrian', 'Car')
+            # WARN: The order of self.classes should be match with
+            #       'pointnet2_lib/tools/kitti_utils.py cls_type_to_id()'
+            self.classes = ('Background', 'Car', 'Pedestrian')
             aug_scene_root_dir = os.path.join(root_dir, 'KITTI', 'aug_scene_ai28')
         else:
             assert False, "Invalid classes: %s" % classes
@@ -372,7 +374,7 @@ class KittiRCNNDataset(KittiDataset):
         gt_obj_list = self.filtrate_objects(self.get_label(sample_id))
         # if cfg.GT_AUG_ENABLED and self.mode == 'TRAIN' and gt_aug_flag:
         #     gt_obj_list.extend(extra_gt_obj_list)
-        gt_boxes3d = kitti_utils.objs_to_boxes3d(gt_obj_list)
+        gt_boxes3d = kitti_utils.objs_to_boxes3d(gt_obj_list, self.classes)
 
         gt_alpha = np.zeros((gt_obj_list.__len__()), dtype = np.float32)
         for k, obj in enumerate(gt_obj_list):
@@ -679,7 +681,7 @@ class KittiRCNNDataset(KittiDataset):
 
             new_pts_list.append(new_gt_points)
             new_pts_intensity_list.append(new_gt_features)
-            cur_gt_boxes3d = np.concatenate((cur_gt_boxes3d, new_enlarged_box3d.reshape(1, 7)), axis = 0)
+            cur_gt_boxes3d = np.concatenate((cur_gt_boxes3d[:, :7], new_enlarged_box3d.reshape(1, 7)), axis=0)
             cur_gt_corners = np.concatenate((cur_gt_corners, new_corners), axis = 0)
             extra_gt_boxes3d_list.append(new_gt_box3d.reshape(1, 7))
             extra_gt_obj_list.append(new_gt_obj)
@@ -1305,7 +1307,7 @@ class KittiRCNNDataset(KittiDataset):
                 max_gt = 0
                 for k in range(batch_size):
                     max_gt = max(max_gt, batch[k][key].__len__())
-                batch_gt_boxes3d = np.zeros((batch_size, max_gt, 7), dtype = np.float32)
+                batch_gt_boxes3d = np.zeros((batch_size, max_gt, 8), dtype=np.float32)
                 for i in range(batch_size):
                     batch_gt_boxes3d[i, :batch[i][key].__len__(), :] = batch[i][key]
                 ans_dict[key] = batch_gt_boxes3d

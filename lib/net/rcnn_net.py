@@ -191,7 +191,7 @@ class RCNNNet(nn.Module):
             l_xyz.append(li_xyz)
             l_features.append(li_features)
 
-        rcnn_cls = self.cls_layer(l_features[-1]).transpose(1, 2).contiguous().squeeze(dim=1)  # (B, 1 or 2)
+        rcnn_cls = self.cls_layer(l_features[-1]).transpose(1, 2).contiguous().squeeze(dim=1)  # (B, num_classes)
         rcnn_reg = self.reg_layer(l_features[-1]).transpose(1, 2).contiguous().squeeze(dim=1)  # (B, C)
         if cfg.USE_IOU_BRANCH:
             rcnn_iou_branch = self.iou_branch(l_features[-1]).transpose(1, 2).contiguous().squeeze(dim=1)  # (B,1)

@@ -210,6 +210,12 @@ def model_joint_fn_decorator():
             cls_target = cls_label_flat.long()
             cls_valid_mask = (cls_label_flat >= 0).float()
 
+            # Prevent the error of CUDA: device-side assert triggered.
+            # The target of loss function should be in the range [0, num_classes)
+            for i in range(cls_target.shape[0]):
+                if cls_target[i] == -1:
+                    cls_target[i] = 0
+
             batch_loss_cls = cls_loss_func(rcnn_cls_flat, cls_target)
             normalizer = torch.clamp(cls_valid_mask.sum(), min = 1.0)
             # rcnn_loss_cls = (batch_loss_cls.mean(dim = 1) * cls_valid_mask).sum() / normalizer
@@ -236,7 +242,7 @@ def model_joint_fn_decorator():
             loss_loc, loss_angle, loss_size, loss_iou, reg_loss_dict = \
                 loss_utils.get_reg_loss(torch.sigmoid(rcnn_cls_flat)[fg_mask], mask_score[fg_mask],
                                         rcnn_reg.view(batch_size, -1)[fg_mask],
-                                        gt_boxes3d_ct.view(batch_size, 7)[fg_mask],
+                                        gt_boxes3d_ct.view(batch_size, 8)[fg_mask],
                                         loc_scope = cfg.RCNN.LOC_SCOPE,
                                         loc_bin_size = cfg.RCNN.LOC_BIN_SIZE,
                                         num_head_bin = cfg.RCNN.NUM_HEAD_BIN,

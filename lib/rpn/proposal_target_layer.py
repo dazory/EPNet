@@ -14,7 +14,7 @@ class ProposalTargetLayer(nn.Module):
     def forward(self, input_dict):
         roi_boxes3d, gt_boxes3d = input_dict['roi_boxes3d'], input_dict['gt_boxes3d']
 
-        batch_rois, batch_gt_of_rois, batch_roi_iou = self.sample_rois_for_rcnn(roi_boxes3d, gt_boxes3d)
+        batch_rois, batch_gt_of_rois, batch_roi_iou, cls_list = self.sample_rois_for_rcnn(roi_boxes3d, gt_boxes3d)
 
         rpn_xyz, rpn_features = input_dict['rpn_xyz'], input_dict['rpn_features']
         if cfg.RCNN.USE_INTENSITY:
@@ -71,12 +71,22 @@ class ProposalTargetLayer(nn.Module):
         batch_cls_label[valid_mask == 0] = -1
         batch_cls_label[invalid_mask > 0] = -1
 
+        batch_cls_label = batch_cls_label.view(-1)
+        cls_list = cls_list.view(-1)
+
+        ##### correlation
+        for i in range(len(batch_cls_label)):
+            if batch_cls_label[i] == 1:
+                batch_cls_label[i] = cls_list[i]
+            else:
+                pass
+
         output_dict = { 'sampled_pts'   : sampled_pts.view(-1, cfg.RCNN.NUM_POINTS, 3),
                         'pts_feature'   : sampled_features.view(-1, cfg.RCNN.NUM_POINTS, sampled_features.shape[3]),
                         'cls_label'     : batch_cls_label.view(-1),
                         'mask_score'    : mask_score.view(-1),
                         'reg_valid_mask': reg_valid_mask.view(-1),
-                        'gt_of_rois'    : batch_gt_of_rois.view(-1, 7),
+                        'gt_of_rois'    : batch_gt_of_rois.view(-1, 8),
                         'gt_iou'        : batch_roi_iou.view(-1),
                         'roi_boxes3d'   : batch_rois.view(-1, 7) }
 
@@ -96,9 +106,10 @@ class ProposalTargetLayer(nn.Module):
         fg_rois_per_image = int(np.round(cfg.RCNN.FG_RATIO * cfg.RCNN.ROI_PER_IMAGE))
 
         batch_rois = gt_boxes3d.new(batch_size, cfg.RCNN.ROI_PER_IMAGE, 7).zero_()
-        batch_gt_of_rois = gt_boxes3d.new(batch_size, cfg.RCNN.ROI_PER_IMAGE, 7).zero_()
+        batch_gt_of_rois = gt_boxes3d.new(batch_size, cfg.RCNN.ROI_PER_IMAGE, 8).zero_()
         batch_roi_iou = gt_boxes3d.new(batch_size, cfg.RCNN.ROI_PER_IMAGE).zero_()
 
+        cls_list = []  # for cls labeling
         for idx in range(batch_size):
             cur_roi, cur_gt = roi_boxes3d[idx], gt_boxes3d[idx]
 
@@ -156,12 +167,13 @@ class ProposalTargetLayer(nn.Module):
                 raise NotImplementedError
 
             # augment the rois by noise
-            roi_list, roi_iou_list, roi_gt_list = [], [], []
+            gt_of_fg_rois, gt_of_bg_rois = None, None
+            roi_list, roi_iou_list, roi_gt_list, cls_list_pre = [], [], [], []
             if fg_rois_per_this_image > 0:
                 fg_rois_src = cur_roi[fg_inds]
                 gt_of_fg_rois = cur_gt[gt_assignment[fg_inds]]
                 iou3d_src = max_overlaps[fg_inds]
-                fg_rois, fg_iou3d = self.aug_roi_by_noise_torch(fg_rois_src, gt_of_fg_rois, iou3d_src,
+                fg_rois, fg_iou3d = self.aug_roi_by_noise_torch(fg_rois_src, gt_of_fg_rois[:, :7], iou3d_src,
                                                                 aug_times = cfg.RCNN.ROI_FG_AUG_TIMES)
                 roi_list.append(fg_rois)
                 roi_iou_list.append(fg_iou3d)
@@ -172,11 +184,22 @@ class ProposalTargetLayer(nn.Module):
                 gt_of_bg_rois = cur_gt[gt_assignment[bg_inds]]
                 iou3d_src = max_overlaps[bg_inds]
                 aug_times = 1 if cfg.RCNN.ROI_FG_AUG_TIMES > 0 else 0
-                bg_rois, bg_iou3d = self.aug_roi_by_noise_torch(bg_rois_src, gt_of_bg_rois, iou3d_src,
+                bg_rois, bg_iou3d = self.aug_roi_by_noise_torch(bg_rois_src, gt_of_bg_rois[:, :7], iou3d_src,
                                                                 aug_times = aug_times)
                 roi_list.append(bg_rois)
                 roi_iou_list.append(bg_iou3d)
                 roi_gt_list.append(gt_of_bg_rois)
+
+            ##### for cls list
+            if (gt_of_fg_rois is not None) and (gt_of_bg_rois is not None):
+                cls_list_pre = torch.cat((gt_of_fg_rois[:, 7], gt_of_bg_rois[:, 7]), 0).unsqueeze(dim=0) # (1,64)
+            elif (gt_of_fg_rois is None) and (gt_of_bg_rois is not None):
+                cls_list_pre = gt_of_bg_rois[:, 7].unsqueeze(dim=0)  # (1,64)
+            elif (gt_of_fg_rois is not None) and (gt_of_bg_rois is None):
+                cls_list_pre = gt_of_fg_rois[:, 7].unsqueeze(dim=0)  # (1,64)
+            else:
+                raise NotImplementedError
+            cls_list.append(cls_list_pre)
 
             rois = torch.cat(roi_list, dim = 0)
             iou_of_rois = torch.cat(roi_iou_list, dim = 0)
@@ -186,7 +209,9 @@ class ProposalTargetLayer(nn.Module):
             batch_gt_of_rois[idx] = gt_of_rois
             batch_roi_iou[idx] = iou_of_rois
 
-        return batch_rois, batch_gt_of_rois, batch_roi_iou
+        cls_list = torch.cat(cls_list).long()
+
+        return batch_rois, batch_gt_of_rois, batch_roi_iou, cls_list
 
     def sample_bg_inds(self, hard_bg_inds, easy_bg_inds, bg_rois_per_this_image):
         if hard_bg_inds.numel() > 0 and easy_bg_inds.numel() > 0:

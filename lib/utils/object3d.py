@@ -1,11 +1,6 @@
 import numpy as np
 
-
-def cls_type_to_id(cls_type):
-    type_to_id = { 'Car': 1, 'Pedestrian': 2, 'Cyclist': 3, 'Van': 4 }
-    if cls_type not in type_to_id.keys():
-        return -1
-    return type_to_id[cls_type]
+from pointnet2_lib.tools.kitti_utils import cls_type_to_id
 
 
 class Object3d(object):

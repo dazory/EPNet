@@ -4,6 +4,8 @@ import scipy
 import lib.utils.object3d as object3d
 import torch
 
+from pointnet2_lib.tools.kitti_utils import cls_type_to_id
+
 
 def get_objects_from_label(label_file):
     with open(label_file, 'r') as f:
@@ -180,11 +182,27 @@ def in_hull(p, hull):
     return flag
 
 
-def objs_to_boxes3d(obj_list):
-    boxes3d = np.zeros((obj_list.__len__(), 7), dtype = np.float32)
+def objs_to_boxes3d(obj_list, valid_classes):
+    if type(valid_classes) is tuple:
+        valid_classes = list(valid_classes)
+
+    valid_class_idx = []
+    for valid_class in valid_classes:
+        valid_class_idx.append(cls_type_to_id(valid_class))
+
+    boxes3d = np.zeros((obj_list.__len__(), 8), dtype = np.float32)
     for k, obj in enumerate(obj_list):
-        boxes3d[k, 0:3], boxes3d[k, 3], boxes3d[k, 4], boxes3d[k, 5], boxes3d[k, 6] \
-            = obj.pos, obj.h, obj.w, obj.l, obj.ry
+        if not obj.cls_id in valid_class_idx:
+            if obj.cls_id == cls_type_to_id('Van'):
+                obj.cls_id = cls_type_to_id('Car')
+                obj.cls_type = 'Car'
+            elif obj.cls_id == cls_type_to_id('Person_sitting'):
+                obj.cls_id = cls_type_to_id('Pedestrian')
+                obj.cls_type = 'Pedestrian'
+            else:
+                obj.cls_id = 0
+        boxes3d[k, 0:3], boxes3d[k, 3], boxes3d[k, 4], boxes3d[k, 5], boxes3d[k, 6], boxes3d[k, 7] \
+            = obj.pos, obj.h, obj.w, obj.l, obj.ry, obj.cls_id
     return boxes3d
 
 
