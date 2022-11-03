@@ -44,7 +44,8 @@ class SigmoidFocalClassificationLoss(nn.Module):
     def forward(self,
                 prediction_tensor,
                 target_tensor,
-                weights):
+                weights,
+                reduction='none'):
         """Compute loss function.
 
         Args:
@@ -60,20 +61,26 @@ class SigmoidFocalClassificationLoss(nn.Module):
           loss: a float tensor of shape [batch_size, num_anchors, num_classes]
             representing the value of the loss function.
         """
-        per_entry_cross_ent = (_sigmoid_cross_entropy_with_logits(
-                labels = target_tensor, logits = prediction_tensor))
-        prediction_probabilities = torch.sigmoid(prediction_tensor)
-        p_t = ((target_tensor * prediction_probabilities) +
-               ((1 - target_tensor) * (1 - prediction_probabilities)))
+        p = torch.sigmoid(prediction_tensor)
+        ce_loss = torch.nn.functional.binary_cross_entropy_with_logits(prediction_tensor, target_tensor, reduction='none')
+        p_t = p * target_tensor + (1 - p) * (1 - target_tensor)
+
         modulating_factor = 1.0
         if self._gamma:
             modulating_factor = torch.pow(1.0 - p_t, self._gamma)
-        alpha_weight_factor = 1.0
-        if self._alpha is not None:
-            alpha_weight_factor = (target_tensor * self._alpha + (1 - target_tensor) * (1 - self._alpha))
+        loss = ce_loss * modulating_factor
 
-        focal_cross_entropy_loss = (modulating_factor * alpha_weight_factor * per_entry_cross_ent)
-        return focal_cross_entropy_loss * weights
+        alpha_t = 1.0
+        if (self._alpha is not None) and (self._alpha >= 0):
+            alpha_t = self._alpha * target_tensor + (1 - self._alpha) * (1 - target_tensor)
+        loss = alpha_t * loss
+
+        if reduction == 'mean':
+            loss = loss.mean()
+        elif reduction == 'sum':
+            loss = loss.sum()
+
+        return loss * weights
 
 
 def _sigmoid_cross_entropy_with_logits(logits, labels):
@@ -143,10 +150,8 @@ def get_reg_loss(cls_score, mask_score, pred_reg, reg_label, loc_scope, loc_bin_
         x_res_norm_label = x_res_label / loc_bin_size
         z_res_norm_label = z_res_label / loc_bin_size
 
-        x_bin_onehot = torch.cuda.FloatTensor(x_bin_label.size(0), per_loc_bin_num).zero_()
-        x_bin_onehot.scatter_(1, x_bin_label.view(-1, 1).long(), 1)
-        z_bin_onehot = torch.cuda.FloatTensor(z_bin_label.size(0), per_loc_bin_num).zero_()
-        z_bin_onehot.scatter_(1, z_bin_label.view(-1, 1).long(), 1)
+        x_bin_onehot = torch.nn.functional.one_hot(x_bin_label.long(), num_classes=per_loc_bin_num).type(torch.cuda.FloatTensor)
+        z_bin_onehot = torch.nn.functional.one_hot(z_bin_label.long(), num_classes=per_loc_bin_num).type(torch.cuda.FloatTensor)
 
         loss_x_res = F.smooth_l1_loss((pred_reg[:, x_res_l: x_res_r] * x_bin_onehot).sum(dim = 1), x_res_norm_label)
         loss_z_res = F.smooth_l1_loss((pred_reg[:, z_res_l: z_res_r] * z_bin_onehot).sum(dim = 1), z_res_norm_label)
@@ -215,8 +220,7 @@ def get_reg_loss(cls_score, mask_score, pred_reg, reg_label, loc_scope, loc_bin_
         ry_res_label = shift_angle - (ry_bin_label.float() * angle_per_class + angle_per_class / 2)
         ry_res_norm_label = ry_res_label / (angle_per_class / 2)
 
-    ry_bin_onehot = torch.cuda.FloatTensor(ry_bin_label.size(0), num_head_bin).zero_()
-    ry_bin_onehot.scatter_(1, ry_bin_label.view(-1, 1).long(), 1)
+    ry_bin_onehot = torch.nn.functional.one_hot(ry_bin_label.long(), num_classes=num_head_bin).type(torch.cuda.FloatTensor)
     loss_ry_bin = F.cross_entropy(pred_reg[:, ry_bin_l:ry_bin_r], ry_bin_label)
     loss_ry_res = F.smooth_l1_loss((pred_reg[:, ry_res_l: ry_res_r] * ry_bin_onehot).sum(dim = 1), ry_res_norm_label)
 
