@@ -22,6 +22,7 @@ from tensorboardX import SummaryWriter
 import tqdm
 
 from tools.utils.wandb_logger import WandbLogger
+from pointnet2_lib.tools.kitti_utils import cls_id_to_type
 
 np.random.seed(1024)  # set the same seed
 
@@ -35,7 +36,7 @@ def create_logger(log_file):
     return logging.getLogger(__name__)
 
 
-def save_kitti_format(sample_id, calib, bbox3d, kitti_output_dir, scores, img_shape):
+def save_kitti_format(sample_id, calib, bbox3d, kitti_output_dir, scores, classes, img_shape):
     corners3d = kitti_utils.boxes3d_to_corners3d(bbox3d)
     img_boxes, _ = calib.corners3d_to_img_boxes(corners3d)
 
@@ -51,6 +52,8 @@ def save_kitti_format(sample_id, calib, bbox3d, kitti_output_dir, scores, img_sh
     kitti_output_file = os.path.join(kitti_output_dir, '%06d.txt' % sample_id)
     with open(kitti_output_file, 'w') as f:
         for k in range(bbox3d.shape[0]):
+            if cls_id_to_type(classes[k].item()) == 'Background':
+                continue
             if box_valid_mask[k] == 0:
                 continue
             x, z, ry = bbox3d[k, 0], bbox3d[k, 2], bbox3d[k, 6]
@@ -58,7 +61,7 @@ def save_kitti_format(sample_id, calib, bbox3d, kitti_output_dir, scores, img_sh
             alpha = -np.sign(beta) * np.pi / 2 + beta + ry
 
             print('%s -1 -1 %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f' %
-                  (cfg.CLASSES, alpha, img_boxes[k, 0], img_boxes[k, 1], img_boxes[k, 2], img_boxes[k, 3],
+                  (cls_id_to_type(classes[k].item()), alpha, img_boxes[k, 0], img_boxes[k, 1], img_boxes[k, 2], img_boxes[k, 3],
                    bbox3d[k, 3], bbox3d[k, 4], bbox3d[k, 5], bbox3d[k, 0], bbox3d[k, 1], bbox3d[k, 2],
                    bbox3d[k, 6], scores[k]), file = f)
 
@@ -636,9 +639,13 @@ def eval_one_epoch_joint(model, dataloader, epoch_id, result_dir, logger, wandb_
             if cur_inds.sum() == 0:
                 continue
 
+            fg_inds = pred_classes[k].squeeze() > 0
+            cur_inds = cur_inds * fg_inds
+
             pred_boxes3d_selected = pred_boxes3d[k, cur_inds]
             raw_scores_selected = raw_scores[k, cur_inds]
             norm_scores_selected = norm_scores[k, cur_inds]
+            pred_classes_selected = pred_classes[k, cur_inds]
 
             # NMS thresh
             # rotated nms
@@ -647,13 +654,14 @@ def eval_one_epoch_joint(model, dataloader, epoch_id, result_dir, logger, wandb_
             pred_boxes3d_selected = pred_boxes3d_selected[keep_idx]
             scores_selected = raw_scores_selected[keep_idx]
             pred_boxes3d_selected, scores_selected = pred_boxes3d_selected.cpu().numpy(), scores_selected.cpu().numpy()
+            pred_classes_selected = pred_classes_selected[keep_idx]
 
             cur_sample_id = sample_id[k]
             calib = dataset.get_calib(cur_sample_id)
             final_total += pred_boxes3d_selected.shape[0]
             image_shape = dataset.get_image_shape(cur_sample_id)
             save_kitti_format(cur_sample_id, calib, pred_boxes3d_selected, final_output_dir, scores_selected,
-                              image_shape)
+                              pred_classes_selected, image_shape)
             if args.debug:
                 break
 
@@ -706,7 +714,7 @@ def eval_one_epoch_joint(model, dataloader, epoch_id, result_dir, logger, wandb_
 
     if cfg.TEST.SPLIT != 'test':
         logger.info('Averate Precision:')
-        name_to_class = { 'Car': 0, 'Pedestrian': 1, 'Cyclist': 2, 'AI28': ['Pedestrian', 'Car'] }
+        name_to_class = { 'Car': 0, 'Pedestrian': 1, 'Cyclist': 2, 'AI28': ['Car', 'Pedestrian'] }
         ap_result_str, ap_dict = kitti_evaluate(dataset.label_dir, final_output_dir, label_split_file = split_file,
                                                 current_class = name_to_class[cfg.CLASSES])
         logger.info(ap_result_str)

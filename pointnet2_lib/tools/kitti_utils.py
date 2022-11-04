@@ -3,11 +3,19 @@ from scipy.spatial import Delaunay
 import scipy
 
 
+type_to_id = {'Background': 0, 'Car': 1, 'Pedestrian': 2, 'Cyclist': 3, 'Van': 4, 'Person_sitting': 5}
+
 def cls_type_to_id(cls_type):
-    type_to_id = {'Background': 0, 'Car': 1, 'Pedestrian': 2, 'Cyclist': 3, 'Van': 4, 'Person_sitting': 5}
-    if cls_type not in type_to_id.keys():
-        return -1
-    return type_to_id[cls_type]
+    for type, id in type_to_id.items():
+        if type == cls_type:
+            return id
+    return -1
+
+def cls_id_to_type(cls_id):
+    for type, id in type_to_id.items():
+        if id == cls_id:
+            return type
+    return -1
 
 
 class Object3d(object):
