@@ -82,6 +82,7 @@ parser.add_argument('--start_epoch', default = 0, type = int, help = 'ignore the
 parser.add_argument('--max_waiting_mins', type=int, default=30, help='max waiting minutes')
 
 parser.add_argument('--debug', action='store_true', default=False)
+parser.add_argument('--dataset', type=str)
 
 args = parser.parse_args()
 
@@ -96,11 +97,12 @@ def create_logger(log_file):
     return logging.getLogger(__name__)
 
 
-def create_dataloader(logger):
+def create_dataloader(logger, dataset):
     DATA_PATH = os.path.join('/ws/', 'data')
 
     # create dataloader
-    train_set = KittiRCNNDataset(root_dir = DATA_PATH, npoints = cfg.RPN.NUM_POINTS, split = cfg.TRAIN.SPLIT,
+    train_set = KittiRCNNDataset(root_dir = DATA_PATH, dataset=dataset,
+                                 npoints = cfg.RPN.NUM_POINTS, split = cfg.TRAIN.SPLIT,
                                  mode = 'TRAIN',
                                  logger = logger,
                                  classes = cfg.CLASSES,
@@ -253,7 +255,7 @@ if __name__ == "__main__":
     tb_log = SummaryWriter(logdir = os.path.join(root_result_dir, 'tensorboard'))
 
     # create dataloader & network & optimizer
-    train_loader, test_loader = create_dataloader(logger)
+    train_loader, test_loader = create_dataloader(logger, args.dataset)
     # model = PointRCNN(num_classes=train_loader.dataset.num_class, use_xyz=True, mode='TRAIN')
     fn_decorator = train_functions.model_joint_fn_decorator()
 
