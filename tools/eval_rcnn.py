@@ -66,6 +66,8 @@ parser.add_argument('--model_type', type = str, default = 'base', help = 'model 
 parser.add_argument('--wandb', '-wb', action='store_true', help='use wandb')
 parser.add_argument('--debug', action='store_true', help='debug mode')
 
+parser.add_argument('--augmix', action='store_true', help='using augmix')
+
 args = parser.parse_args()
 
 
@@ -926,21 +928,24 @@ def repeat_eval_ckpt(root_result_dir, ckpt_dir, wandb_logger):
     first_eval = True
     while True:
         # check whether there is checkpoint which is not evaluated
-        cur_epoch_id, cur_ckpt = get_no_evaluated_ckpt(ckpt_dir, ckpt_record_file)
-        if cur_epoch_id == -1 or int(float(cur_epoch_id)) < args.start_epoch:
-            wait_second = 30
-            print('Wait %s second for next check: %s' % (wait_second, ckpt_dir))
-            time.sleep(wait_second)
-            total_time += 30
-            if total_time > args.max_waiting_mins * 60 and (first_eval is False):
-                break
-            continue
+        cur_ckpt = glob.glob(os.path.join(ckpt_dir, '*checkpoint_epoch_*.pth'))
+        cur_epoch_id = 1
+        # cur_epoch_id, cur_ckpt = get_no_evaluated_ckpt(ckpt_dir, ckpt_record_file)
+        # if cur_epoch_id == -1 or int(float(cur_epoch_id)) < args.start_epoch:
+        #     wait_second = 30
+        #     print('Wait %s second for next check: %s' % (wait_second, ckpt_dir))
+        #     time.sleep(wait_second)
+        #     total_time += 30
+        #     if total_time > args.max_waiting_mins * 60 and (first_eval is False):
+        #         break
+        #     continue
 
         total_time = 0
         first_eval = False
 
         # load checkpoint
-        train_utils.load_checkpoint(model, filename = cur_ckpt)
+        # train_utils.load_checkpoint(model, filename = cur_ckpt)
+        train_utils.load_checkpoint(model, filename=cur_ckpt[0])
 
         # start evaluation
         cur_result_dir = os.path.join(root_result_dir, 'epoch_%s' % cur_epoch_id, cfg.TEST.SPLIT)
@@ -967,7 +972,7 @@ def create_dataloader(logger):
                                 rcnn_eval_roi_dir = args.rcnn_eval_roi_dir,
                                 rcnn_eval_feature_dir = args.rcnn_eval_feature_dir,
                                 classes = cfg.CLASSES,
-                                logger = logger)
+                                logger = logger, augmix = args.augmix)
 
     test_loader = DataLoader(test_set, batch_size = args.batch_size, shuffle = False, pin_memory = True,
                              num_workers = args.workers, collate_fn = test_set.collate_batch)

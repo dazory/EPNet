@@ -56,6 +56,8 @@ parser.add_argument('--model_type', type = str, default = 'base', help = 'model 
 
 parser.add_argument('--wandb', '-wb', action='store_true', help='use wandb')
 
+parser.add_argument('--augmix', action='store_true', help='using augmix')
+
 args = parser.parse_args()
 
 
@@ -79,7 +81,7 @@ def create_dataloader(logger):
                                  classes = cfg.CLASSES,
                                  rcnn_training_roi_dir = args.rcnn_training_roi_dir,
                                  rcnn_training_feature_dir = args.rcnn_training_feature_dir,
-                                 gt_database_dir = args.gt_database)
+                                 gt_database_dir = args.gt_database, augmix = args.augmix)
     train_loader = DataLoader(train_set, batch_size = args.batch_size, pin_memory = True,
                               num_workers = args.workers, shuffle = True, collate_fn = train_set.collate_batch,
                               drop_last = True)

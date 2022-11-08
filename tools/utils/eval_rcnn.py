@@ -832,6 +832,8 @@ def get_no_evaluated_ckpt(ckpt_dir, ckpt_record_file, args):
             return epoch_id, cur_ckpt
     return -1, None
 
+        # epoch_id = num_list[-1]
+        # return epoch_id, cur_ckpt
 
 def repeat_eval_ckpt(root_result_dir, ckpt_dir, wandb_logger, args):
     root_result_dir = os.path.join(root_result_dir, 'eval', 'eval_all_' + args.extra_tag)
@@ -915,7 +917,7 @@ def create_dataloader(logger, args):
     DATA_PATH = os.path.join('/ws/', 'data')
 
     # create dataloader
-    test_set = KittiRCNNDataset(root_dir = DATA_PATH, npoints = cfg.RPN.NUM_POINTS, split = cfg.TEST.SPLIT, mode = mode,
+    test_set = KittiRCNNDataset(root_dir = DATA_PATH, augmix = args.augmix, npoints = cfg.RPN.NUM_POINTS, split = cfg.TEST.SPLIT, mode = mode,
                                 random_select = args.random_select,
                                 rcnn_eval_roi_dir = args.rcnn_eval_roi_dir,
                                 rcnn_eval_feature_dir = args.rcnn_eval_feature_dir,

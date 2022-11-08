@@ -4,10 +4,12 @@ import torch.utils.data as torch_data
 import lib.utils.calibration as calibration
 import lib.utils.kitti_utils as kitti_utils
 from PIL import Image
-
+from augmix import AugMix
 
 class KittiDataset(torch_data.Dataset):
-    def __init__(self, root_dir, dataset='kitti', split='train'):
+
+    def __init__(self, root_dir, augmix, dataset='kitti', split='train'):
+
         self.split = split
         is_test = self.split == 'test'
         self.imageset_dir = os.path.join(root_dir, dataset, 'testing' if is_test else 'training')
@@ -25,6 +27,7 @@ class KittiDataset(torch_data.Dataset):
         self.std = [0.229, 0.224, 0.225]
         # Don't need to permute while using grid_sample
         self.image_hw_with_padding_np = np.array([1280., 384.])
+        self.augmix = augmix
 
     def get_image(self, idx):
         assert False, 'DO NOT USE cv2 NOW, AVOID DEADLOCK'
@@ -40,21 +43,66 @@ class KittiDataset(torch_data.Dataset):
         :param idx:
         :return: imback(H,W,3)
         """
-        img_file = os.path.join(self.image_dir, '%06d.png' % idx)
-        assert os.path.exists(img_file)
-        im = Image.open(img_file).convert('RGB')
-        im = np.array(im).astype(np.float)
-        im = im / 255.0
-        im -= self.mean
-        im /= self.std
-        #print(im.shape)
-        # ~[-2,2]
-        # im = im[:, :, ::-1]
-        # make same size padding with 0
-        imback = np.zeros([384, 1280, 3], dtype = np.float)
-        imback[:im.shape[0], :im.shape[1], :] = im
+        if self.split == 'train':
+            if self.augmix == True:
+                img_file = os.path.join(self.image_dir, '%06d.png' % idx)
+                assert os.path.exists(img_file)
+                im = Image.open(img_file).convert('RGB')
+                # im.save('original.png', 'png')
+                im = np.array(im)
 
-        return imback  # (H,W,3) RGB mode
+                im = AugMix()(im)
+                # im = im / 255.0
+                # im -= self.mean
+                # im /= self.std
+                #print(im.shape)
+                # ~[-2,2]
+                # im = im[:, :, ::-1]
+                # make same size padding with 0
+                imback = np.zeros([384, 1280, 3], dtype=np.float)
+                # imback = np.zeros([384, 1280, 3], dtype = np.uint8)
+                imback[:im.shape[0], :im.shape[1], :] = im
+
+                # pil_image = Image.fromarray(imback)
+                # pil_image.save('out1.png', 'png')
+
+                return imback  # (H,W,3) RGB
+
+            elif self.augmix == False:
+                img_file = os.path.join(self.image_dir, '%06d.png' % idx)
+                assert os.path.exists(img_file)
+                im = Image.open(img_file).convert('RGB')
+                im = np.array(im).astype(np.float)
+                im = im / 255.0
+                im -= self.mean
+                im /= self.std
+                # print(im.shape)
+                # ~[-2,2]
+                # im = im[:, :, ::-1]
+                # make same size padding with 0
+                imback = np.zeros([384, 1280, 3], dtype=np.float)
+                imback[:im.shape[0], :im.shape[1], :] = im
+
+                return imback  # (H,W,3) RGB mode
+
+
+
+        else:
+            img_file = os.path.join(self.image_dir, '%06d.png' % idx)
+            assert os.path.exists(img_file)
+            im = Image.open(img_file).convert('RGB')
+            im = np.array(im).astype(np.float)
+            im = im / 255.0
+            im -= self.mean
+            im /= self.std
+            # print(im.shape)
+            # ~[-2,2]
+            # im = im[:, :, ::-1]
+            # make same size padding with 0
+            imback = np.zeros([384, 1280, 3], dtype=np.float)
+            imback[:im.shape[0], :im.shape[1], :] = im
+            return imback  # (H,W,3) RGB
+
 
     def get_image_shape_with_padding(self, idx = 0):
         return 384, 1280, 3

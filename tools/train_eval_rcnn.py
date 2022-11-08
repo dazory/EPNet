@@ -26,6 +26,7 @@ from tools.utils.eval_rcnn import repeat_eval_ckpt, eval_single_ckpt
 
 parent_dir = '/ws/data/ai28/EPNet/'
 
+
 parser = argparse.ArgumentParser(description = "arg parser")
 parser.add_argument('--cfg_file', type = str, default = 'cfgs/LI_Fusion_with_attention_use_ce_loss.yaml', help = 'specify the config for training')
 parser.add_argument("--train_mode", type = str, default = 'rpn', required = True, help = "specify the training mode")
@@ -57,6 +58,8 @@ parser.add_argument('--set', dest = 'set_cfgs', default = None, nargs = argparse
                     help = 'set extra config keys if needed')
 parser.add_argument('--model_type', type = str, default = 'base', help = 'model type')
 
+parser.add_argument('--augmix', action='store_true', help='using augmix')
+
 ## Evaluation
 parser.add_argument("--eval_mode", type = str, default = 'rpn', required = True, help = "specify the evaluation mode")
 
@@ -85,6 +88,7 @@ parser.add_argument('--fine_tune', '-ft', action='store_true', help='fine-tuning
 parser.add_argument("--ft_epochs", type = int, default = 10, required = True, help = "Number of epochs to fine-tune for")
 
 parser.add_argument('--wandb', '-wb', action='store_true', help='use wandb')
+
 parser.add_argument('--debug', action='store_true', default=False)
 parser.add_argument('--dataset', type=str)
 
@@ -112,7 +116,7 @@ def create_dataloader(logger, dataset):
                                  classes = cfg.CLASSES,
                                  rcnn_training_roi_dir = args.rcnn_training_roi_dir,
                                  rcnn_training_feature_dir = args.rcnn_training_feature_dir,
-                                 gt_database_dir = args.gt_database)
+                                 gt_database_dir = args.gt_database, augmix = args.augmix)
     train_loader = DataLoader(train_set, batch_size = args.batch_size, pin_memory = True,
                               num_workers = args.workers, shuffle = True, collate_fn = train_set.collate_batch,
                               drop_last = True)
@@ -286,8 +290,8 @@ if __name__ == "__main__":
         lr_scheduler, bnm_scheduler = create_scheduler(optimizer, total_steps=len(train_loader) * args.ft_epochs,
                                                        last_epoch=last_epoch)
     else:
-        lr_scheduler, bnm_scheduler = create_scheduler(optimizer, total_steps = len(train_loader) * args.epochs,
-                                                       last_epoch = last_epoch)
+        lr_scheduler, bnm_scheduler = create_scheduler(optimizer, total_steps=len(train_loader) * args.epochs,
+                                                       last_epoch=last_epoch)
 
     if args.rpn_ckpt is not None:
         pure_model = model.module if isinstance(model, torch.nn.DataParallel) else model

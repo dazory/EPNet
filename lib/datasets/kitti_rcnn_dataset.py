@@ -36,12 +36,15 @@ def interpolate_img_by_xy(img, xy, normal_shape):
 
 
 class KittiRCNNDataset(KittiDataset):
-    def __init__(self, root_dir, dataset='kitti', npoints = 16384, split = 'train', classes = 'Car', mode = 'TRAIN',
+    def __init__(self, root_dir, augmix, dataset='kitti', npoints = 16384, split = 'train', classes = 'Car', mode = 'TRAIN',
                  random_select = True,
                  logger = None, rcnn_training_roi_dir = None, rcnn_training_feature_dir = None,
                  rcnn_eval_roi_dir = None,
                  rcnn_eval_feature_dir = None, gt_database_dir = None):
-        super().__init__(root_dir=root_dir, dataset=dataset, split = split)
+
+        super().__init__(root_dir=root_dir, dataset=dataset, split = split, augmix = augmix)
+
+
         if classes == 'Car':
             self.classes = ('Background', 'Car')
             aug_scene_root_dir = os.path.join(root_dir, dataset, 'aug_scene')
