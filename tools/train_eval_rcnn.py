@@ -57,8 +57,6 @@ parser.add_argument('--set', dest = 'set_cfgs', default = None, nargs = argparse
                     help = 'set extra config keys if needed')
 parser.add_argument('--model_type', type = str, default = 'base', help = 'model type')
 
-parser.add_argument('--wandb', '-wb', action='store_true', help='use wandb')
-
 ## Evaluation
 parser.add_argument("--eval_mode", type = str, default = 'rpn', required = True, help = "specify the evaluation mode")
 
@@ -81,6 +79,12 @@ parser.add_argument('--random_select', action = 'store_true', default = True,
 parser.add_argument('--start_epoch', default = 0, type = int, help = 'ignore the checkpoint smaller than this epoch')
 parser.add_argument('--max_waiting_mins', type=int, default=30, help='max waiting minutes')
 
+# Fine tuning
+parser.add_argument('--fine_tune', '-ft', action='store_true', help='fine-tuning mode')
+# parser.add_argument("--ckpt", type = str, default = None, help = "continue training from this checkpoint")
+parser.add_argument("--ft_epochs", type = int, default = 10, required = True, help = "Number of epochs to fine-tune for")
+
+parser.add_argument('--wandb', '-wb', action='store_true', help='use wandb')
 parser.add_argument('--debug', action='store_true', default=False)
 parser.add_argument('--dataset', type=str)
 
@@ -275,8 +279,15 @@ if __name__ == "__main__":
         it, start_epoch = train_utils.load_checkpoint(pure_model, optimizer, filename = args.ckpt, logger = logger)
         last_epoch = start_epoch + 1
 
-    lr_scheduler, bnm_scheduler = create_scheduler(optimizer, total_steps = len(train_loader) * args.epochs,
-                                                   last_epoch = last_epoch)
+    if args.fine_tune:
+        start_epoch = 0
+        start_it = 0
+        last_epoch = start_epoch + 1
+        lr_scheduler, bnm_scheduler = create_scheduler(optimizer, total_steps=len(train_loader) * args.ft_epochs,
+                                                       last_epoch=last_epoch)
+    else:
+        lr_scheduler, bnm_scheduler = create_scheduler(optimizer, total_steps = len(train_loader) * args.epochs,
+                                                       last_epoch = last_epoch)
 
     if args.rpn_ckpt is not None:
         pure_model = model.module if isinstance(model, torch.nn.DataParallel) else model
@@ -314,7 +325,7 @@ if __name__ == "__main__":
     trainer.train(
             it,
             start_epoch,
-            args.epochs,
+            args.epochs if not args.fine_tune else args.ft_epochs,
             train_loader,
             test_loader,
             ckpt_save_interval = args.ckpt_save_interval,
