@@ -832,8 +832,6 @@ def get_no_evaluated_ckpt(ckpt_dir, ckpt_record_file, args):
             return epoch_id, cur_ckpt
     return -1, None
 
-        # epoch_id = num_list[-1]
-        # return epoch_id, cur_ckpt
 
 def repeat_eval_ckpt(root_result_dir, ckpt_dir, wandb_logger, args):
     root_result_dir = os.path.join(root_result_dir, 'eval', 'eval_all_' + args.extra_tag)

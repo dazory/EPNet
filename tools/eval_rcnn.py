@@ -928,24 +928,21 @@ def repeat_eval_ckpt(root_result_dir, ckpt_dir, wandb_logger):
     first_eval = True
     while True:
         # check whether there is checkpoint which is not evaluated
-        cur_ckpt = glob.glob(os.path.join(ckpt_dir, '*checkpoint_epoch_*.pth'))
-        cur_epoch_id = 1
-        # cur_epoch_id, cur_ckpt = get_no_evaluated_ckpt(ckpt_dir, ckpt_record_file)
-        # if cur_epoch_id == -1 or int(float(cur_epoch_id)) < args.start_epoch:
-        #     wait_second = 30
-        #     print('Wait %s second for next check: %s' % (wait_second, ckpt_dir))
-        #     time.sleep(wait_second)
-        #     total_time += 30
-        #     if total_time > args.max_waiting_mins * 60 and (first_eval is False):
-        #         break
-        #     continue
+        cur_epoch_id, cur_ckpt = get_no_evaluated_ckpt(ckpt_dir, ckpt_record_file)
+        if cur_epoch_id == -1 or int(float(cur_epoch_id)) < args.start_epoch:
+            wait_second = 30
+            print('Wait %s second for next check: %s' % (wait_second, ckpt_dir))
+            time.sleep(wait_second)
+            total_time += 30
+            if total_time > args.max_waiting_mins * 60 and (first_eval is False):
+                break
+            continue
 
         total_time = 0
         first_eval = False
 
         # load checkpoint
-        # train_utils.load_checkpoint(model, filename = cur_ckpt)
-        train_utils.load_checkpoint(model, filename=cur_ckpt[0])
+        train_utils.load_checkpoint(model, filename = cur_ckpt)
 
         # start evaluation
         cur_result_dir = os.path.join(root_result_dir, 'epoch_%s' % cur_epoch_id, cfg.TEST.SPLIT)
