@@ -23,6 +23,8 @@ from tools.train_utils import learning_schedules_fastai as lsf
 import wandb
 from tools.utils.wandb_logger import WandbLogger
 from tools.utils.eval_rcnn import repeat_eval_ckpt, eval_single_ckpt
+from thirdparty.dscv.utils.param_manager import ParamManager
+
 
 parent_dir = '/ws/data/ai28/EPNet/'
 
@@ -85,12 +87,16 @@ parser.add_argument('--max_waiting_mins', type=int, default=30, help='max waitin
 # Fine tuning
 parser.add_argument('--fine_tune', '-ft', action='store_true', help='fine-tuning mode')
 # parser.add_argument("--ckpt", type = str, default = None, help = "continue training from this checkpoint")
-parser.add_argument("--ft_epochs", type = int, default = 10, required = True, help = "Number of epochs to fine-tune for")
+parser.add_argument("--ft_epochs", type = int, default = 10, help = "Number of epochs to fine-tune for")
+
+# Linear probing
+parser.add_argument('--linear_probing', action='store_true', help='linear probing mode')
+parser.add_argument("--lp_epochs", type = int, default = 10, help = "Number of epochs to linear probing for")
 
 parser.add_argument('--wandb', '-wb', action='store_true', help='use wandb')
 
 parser.add_argument('--debug', action='store_true', default=False)
-parser.add_argument('--dataset', type=str)
+parser.add_argument('--dataset', default='kitti', required = True, type=str)
 
 args = parser.parse_args()
 
@@ -289,6 +295,14 @@ if __name__ == "__main__":
         last_epoch = start_epoch + 1
         lr_scheduler, bnm_scheduler = create_scheduler(optimizer, total_steps=len(train_loader) * args.ft_epochs,
                                                        last_epoch=last_epoch)
+        args.epochs = args.ft_epochs
+    elif args.linear_probing:
+        start_epoch = 0
+        start_it = 0
+        last_epoch = start_epoch + 1
+        lr_scheduler, bnm_scheduler = create_scheduler(optimizer, total_steps=len(train_loader) * args.lp_epochs,
+                                                       last_epoch=last_epoch)
+        args.epochs = args.lp_epochs
     else:
         lr_scheduler, bnm_scheduler = create_scheduler(optimizer, total_steps=len(train_loader) * args.epochs,
                                                        last_epoch=last_epoch)
@@ -303,6 +317,13 @@ if __name__ == "__main__":
                                                          eta_min = cfg.TRAIN.WARMUP_MIN)
     else:
         lr_warmup_scheduler = None
+
+    if args.linear_probing:
+        param_manager = ParamManager()
+        # param_manager.check_param_structure(model)
+        layer_not_to_freeze_list = ['rpn.rpn_cls_layer', 'rpn.rpn_reg_layer', 'rcnn_net.cls_layer', 'rcnn_net.reg_layer']
+        param_manager.freeze_params_except(model, layer_not_to_freeze_list)
+        # param_manager.check_grad_status(model)
 
     # start training
     logger.info('**********************Start training**********************')
@@ -329,7 +350,7 @@ if __name__ == "__main__":
     trainer.train(
             it,
             start_epoch,
-            args.epochs if not args.fine_tune else args.ft_epochs,
+            args.epochs,
             train_loader,
             test_loader,
             ckpt_save_interval = args.ckpt_save_interval,
