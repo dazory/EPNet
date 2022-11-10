@@ -449,7 +449,7 @@ def eval_one_epoch_rcnn(model, dataloader, epoch_id, result_dir, logger, wandb_l
 
     if cfg.TEST.SPLIT != 'test':
         logger.info('Averate Precision:')
-        name_to_class = { 'Car': 0, 'Pedestrian': 1, 'Cyclist': 2, 'AI28': ['Pedestrian', 'Car'] }
+        name_to_class = { 'Car': 0, 'Pedestrian': 1, 'Cyclist': 2, 'AI28': ['Car', 'Pedestrian'] }
         ap_result_str, ap_dict = kitti_evaluate(dataset.label_dir, final_output_dir, label_split_file = split_file,
                                                 current_class = name_to_class[cfg.CLASSES])
         logger.info(ap_result_str)
@@ -915,7 +915,7 @@ def create_dataloader(logger, args):
     DATA_PATH = os.path.join('/ws/', 'data')
 
     # create dataloader
-    test_set = KittiRCNNDataset(root_dir = DATA_PATH, augmix = args.augmix, npoints = cfg.RPN.NUM_POINTS, split = cfg.TEST.SPLIT, mode = mode,
+    test_set = KittiRCNNDataset(root_dir = DATA_PATH, dataset=args.dataset, augmix = args.augmix, npoints = cfg.RPN.NUM_POINTS, split = cfg.TEST.SPLIT, mode = mode,
                                 random_select = args.random_select,
                                 rcnn_eval_roi_dir = args.rcnn_eval_roi_dir,
                                 rcnn_eval_feature_dir = args.rcnn_eval_feature_dir,
