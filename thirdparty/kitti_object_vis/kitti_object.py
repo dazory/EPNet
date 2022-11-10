@@ -27,7 +27,7 @@ cbox = np.array([[0, 70.4], [-40, 40], [-3, 1]])
 class kitti_object(object):
     """Load and parse object data into a usable format."""
 
-    def __init__(self, root_dir, split="training", args=None, mode='gt'):
+    def __init__(self, root_dir, split="training", args=None, mode='gt', parent_dir=None, eval_dir=None):
         """root_dir contains training and testing folders"""
         self.root_dir = root_dir
         self.split = split
@@ -54,8 +54,6 @@ class kitti_object(object):
         if mode == 'gt':
             self.label_dir = os.path.join(self.split_dir, "label_2")
         elif mode == 'pred':
-            parent_dir = '/ws/data2/ai28/EPNet/log/AI28v1_2/full_epnet_without_iou_branch'
-            eval_dir = 'eval_results/eval/eval_all_default/epoch_34/val/final_result'
             self.label_dir = os.path.join(f"{parent_dir}/{eval_dir}", "data")
         else:
             raise NotImplementedError(f"only supported for 'gt' and 'pred', "
