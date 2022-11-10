@@ -128,12 +128,12 @@ def create_dataloader(logger, dataset):
                               drop_last = True)
 
     if args.train_with_eval:
-        test_set = KittiRCNNDataset(root_dir = DATA_PATH, npoints = cfg.RPN.NUM_POINTS, split = cfg.TRAIN.VAL_SPLIT,
+        test_set = KittiRCNNDataset(root_dir = DATA_PATH, dataset=dataset, npoints = cfg.RPN.NUM_POINTS, split = cfg.TRAIN.VAL_SPLIT,
                                     mode = 'EVAL',
                                     logger = logger,
                                     classes = cfg.CLASSES,
                                     rcnn_eval_roi_dir = args.rcnn_eval_roi_dir,
-                                    rcnn_eval_feature_dir = args.rcnn_eval_feature_dir)
+                                    rcnn_eval_feature_dir = args.rcnn_eval_feature_dir, augmix = args.augmix)
         test_loader = DataLoader(test_set, batch_size = 1, shuffle = True, pin_memory = True,
                                  num_workers = args.workers, collate_fn = test_set.collate_batch)
     else:
@@ -290,16 +290,16 @@ if __name__ == "__main__":
         last_epoch = start_epoch + 1
 
     if args.fine_tune:
-        start_epoch = 0
+        start_epoch = it = 0
         start_it = 0
         last_epoch = start_epoch + 1
         lr_scheduler, bnm_scheduler = create_scheduler(optimizer, total_steps=len(train_loader) * args.ft_epochs,
                                                        last_epoch=last_epoch)
         args.epochs = args.ft_epochs
     elif args.linear_probing:
-        start_epoch = 0
+        start_epoch = it = 0
         start_it = 0
-        last_epoch = start_epoch + 1
+        last_epoch = -1
         lr_scheduler, bnm_scheduler = create_scheduler(optimizer, total_steps=len(train_loader) * args.lp_epochs,
                                                        last_epoch=last_epoch)
         args.epochs = args.lp_epochs
