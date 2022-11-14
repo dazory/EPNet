@@ -8,7 +8,7 @@ from augmix import AugMix
 
 class KittiDataset(torch_data.Dataset):
 
-    def __init__(self, root_dir, augmix, dataset='kitti', split='train'):
+    def __init__(self, root_dir, augmix, corruption_test, dataset='kitti', split='train', corruption_directory=None):
 
         self.split = split
         is_test = self.split == 'test'
@@ -19,6 +19,9 @@ class KittiDataset(torch_data.Dataset):
         self.num_sample = self.image_idx_list.__len__()
 
         self.image_dir = os.path.join(self.imageset_dir, 'image_2')
+
+        if corruption_test == True:
+            self.image_dir = os.path.join('/ws/data/kitti/val_c/', corruption_directory[0], corruption_directory[1])
         self.lidar_dir = os.path.join(self.imageset_dir, 'velodyne')
         self.calib_dir = os.path.join(self.imageset_dir, 'calib')
         self.label_dir = os.path.join(self.imageset_dir, 'label_2')

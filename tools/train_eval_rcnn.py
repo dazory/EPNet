@@ -84,6 +84,8 @@ parser.add_argument('--random_select', action = 'store_true', default = True,
 parser.add_argument('--start_epoch', default = 0, type = int, help = 'ignore the checkpoint smaller than this epoch')
 parser.add_argument('--max_waiting_mins', type=int, default=30, help='max waiting minutes')
 
+parser.add_argument('--corruption_test', action='store_true', help = 'testing kitti corruption')
+
 # Fine tuning
 parser.add_argument('--fine_tune', '-ft', action='store_true', help='fine-tuning mode')
 # parser.add_argument("--ckpt", type = str, default = None, help = "continue training from this checkpoint")
@@ -133,7 +135,7 @@ def create_dataloader(logger, dataset):
                                     logger = logger,
                                     classes = cfg.CLASSES,
                                     rcnn_eval_roi_dir = args.rcnn_eval_roi_dir,
-                                    rcnn_eval_feature_dir = args.rcnn_eval_feature_dir, augmix = args.augmix)
+                                    rcnn_eval_feature_dir = args.rcnn_eval_feature_dir)
         test_loader = DataLoader(test_set, batch_size = 1, shuffle = True, pin_memory = True,
                                  num_workers = args.workers, collate_fn = test_set.collate_batch)
     else:

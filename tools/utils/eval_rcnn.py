@@ -829,6 +829,9 @@ def get_no_evaluated_ckpt(ckpt_dir, ckpt_record_file, args):
 
         epoch_id = num_list[-1]
         if float(epoch_id) not in evaluated_ckpt_list and int(float(epoch_id)) >= args.start_epoch:
+            #Assign ckpt directly
+            # epoch_id = '50'
+            # cur_ckpt = '/ws/external/log/AI28v2/checkpoint_epoch_50.pth'
             return epoch_id, cur_ckpt
     return -1, None
 
@@ -847,82 +850,159 @@ def repeat_eval_ckpt(root_result_dir, ckpt_dir, wandb_logger, args):
     save_config_to_file(cfg, logger = logger)
 
     # create dataloader & network
-    test_loader = create_dataloader(logger, args)
-    # model = PointRCNN(num_classes=test_loader.dataset.num_class, use_xyz=True, mode='TEST')
-    if args.model_type == 'base':
-        model = PointRCNN(num_classes = test_loader.dataset.num_class, use_xyz = True, mode = 'TEST')
-        # print(model)
+    if args.corruption_test == True:
+        corruption_list = ['gaussian_noise', 'shot_noise', 'shot_noise', 'defocus_blur', 'glass_blur', 'motion_blur', 'zoom_blur', 'snow',
+                           'frost', 'fog', 'brightness', 'contrast', 'elastic_transform', 'pixelate', 'jpeg_compression']
+        severity = ['1','2','3','4','5']
 
-    # elif args.model_type == 'rpn_mscale':
-    #     model = PointRCNN_mScale(num_classes = test_loader.dataset.num_class, use_xyz = True, mode = 'TEST')
-    model.cuda()
+        for i1 in range(15):
+            for i2 in range(5):
+                corruption_directory = []
+                corruption_directory = [corruption_list[i1], severity[i2]]
 
-    # copy important files to backup
-    backup_dir = os.path.join(root_result_dir, 'backup_files')
-    os.makedirs(backup_dir, exist_ok = True)
-    os.system('cp *.py %s/' % backup_dir)
-    os.system('cp ../lib/net/*.py %s/' % backup_dir)
-    os.system('cp ../lib/datasets/kitti_rcnn_dataset.py %s/' % backup_dir)
+                test_loader = create_dataloader(logger, args, corruption_directory)
+                # model = PointRCNN(num_classes=test_loader.dataset.num_class, use_xyz=True, mode='TEST')
+                if args.model_type == 'base':
+                    model = PointRCNN(num_classes=test_loader.dataset.num_class, use_xyz=True, mode='TEST')
+                    # print(model)
 
-    # evaluated ckpt record
-    ckpt_record_file = os.path.join(root_result_dir, 'eval_list_%s.txt' % cfg.TEST.SPLIT)
-    with open(ckpt_record_file, 'a'):
-        pass
+                # elif args.model_type == 'rpn_mscale':
+                #     model = PointRCNN_mScale(num_classes = test_loader.dataset.num_class, use_xyz = True, mode = 'TEST')
+                model.cuda()
 
-    # tensorboard log
-    tb_log = SummaryWriter(logdir = os.path.join(root_result_dir, 'tensorboard_%s' % cfg.TEST.SPLIT))
+                # copy important files to backup
+                backup_dir = os.path.join(root_result_dir, 'backup_files')
+                os.makedirs(backup_dir, exist_ok=True)
+                os.system('cp *.py %s/' % backup_dir)
+                os.system('cp ../lib/net/*.py %s/' % backup_dir)
+                os.system('cp ../lib/datasets/kitti_rcnn_dataset.py %s/' % backup_dir)
 
-    total_time = 0
-    first_eval = True
-    while True:
-        # check whether there is checkpoint which is not evaluated
-        cur_epoch_id, cur_ckpt = get_no_evaluated_ckpt(ckpt_dir, ckpt_record_file, args)
-        if cur_epoch_id == -1 or int(float(cur_epoch_id)) < args.start_epoch:
-            wait_second = 30
-            print('Wait %s second for next check: %s' % (wait_second, ckpt_dir))
-            time.sleep(wait_second)
-            total_time += 30
-            if total_time > args.max_waiting_mins * 60 and (first_eval is False):
-                break
-            continue
+                # evaluated ckpt record
+                ckpt_record_file = os.path.join(root_result_dir, 'eval_list_%s.txt' % cfg.TEST.SPLIT)
+                with open(ckpt_record_file, 'a'):
+                    pass
+
+                # tensorboard log
+                tb_log = SummaryWriter(logdir=os.path.join(root_result_dir, 'tensorboard_%s' % cfg.TEST.SPLIT))
+
+                total_time = 0
+                first_eval = True
+                # while True:
+                # check whether there is checkpoint which is not evaluated
+                cur_epoch_id, cur_ckpt = get_no_evaluated_ckpt(ckpt_dir, ckpt_record_file, args)
+                if cur_epoch_id == -1 or int(float(cur_epoch_id)) < args.start_epoch:
+                    wait_second = 30
+                    print('Wait %s second for next check: %s' % (wait_second, ckpt_dir))
+                    time.sleep(wait_second)
+                    total_time += 30
+                    if total_time > args.max_waiting_mins * 60 and (first_eval is False):
+                        break
+                    continue
+
+                total_time = 0
+                first_eval = False
+
+                # load checkpoint
+                train_utils.load_checkpoint(model, filename=cur_ckpt)
+
+                # start evaluation
+                cur_result_dir = os.path.join(root_result_dir, 'epoch_%s' % cur_epoch_id, cfg.TEST.SPLIT)
+                tb_dict = eval_one_epoch(model, test_loader, cur_epoch_id, cur_result_dir, logger, wandb_logger, args)
+
+                step = int(float(cur_epoch_id))
+                if step == float(cur_epoch_id):
+                    for key, val in tb_dict.items():
+                        tb_log.add_scalar(key, val, step)
+
+                # record this epoch which has been evaluated
+                with open(ckpt_record_file, 'a') as f:
+                    print('%s' % cur_epoch_id, file=f)
+                logger.info('Epoch %s has been evaluated' % cur_epoch_id)
+
+                if args.debug:
+                    break
+
+    elif args.corruption_test == False:
+        # create dataloader & network
+        test_loader = create_dataloader(logger, args)
+        # model = PointRCNN(num_classes=test_loader.dataset.num_class, use_xyz=True, mode='TEST')
+        if args.model_type == 'base':
+            model = PointRCNN(num_classes = test_loader.dataset.num_class, use_xyz = True, mode = 'TEST')
+            # print(model)
+
+        # elif args.model_type == 'rpn_mscale':
+        #     model = PointRCNN_mScale(num_classes = test_loader.dataset.num_class, use_xyz = True, mode = 'TEST')
+        model.cuda()
+
+        # copy important files to backup
+        backup_dir = os.path.join(root_result_dir, 'backup_files')
+        os.makedirs(backup_dir, exist_ok = True)
+        os.system('cp *.py %s/' % backup_dir)
+        os.system('cp ../lib/net/*.py %s/' % backup_dir)
+        os.system('cp ../lib/datasets/kitti_rcnn_dataset.py %s/' % backup_dir)
+
+        # evaluated ckpt record
+        ckpt_record_file = os.path.join(root_result_dir, 'eval_list_%s.txt' % cfg.TEST.SPLIT)
+        with open(ckpt_record_file, 'a'):
+            pass
+
+        # tensorboard log
+        tb_log = SummaryWriter(logdir = os.path.join(root_result_dir, 'tensorboard_%s' % cfg.TEST.SPLIT))
 
         total_time = 0
-        first_eval = False
+        first_eval = True
+        while True:
+            # check whether there is checkpoint which is not evaluated
+            cur_epoch_id, cur_ckpt = get_no_evaluated_ckpt(ckpt_dir, ckpt_record_file, args)
+            if cur_epoch_id == -1 or int(float(cur_epoch_id)) < args.start_epoch:
+                wait_second = 30
+                print('Wait %s second for next check: %s' % (wait_second, ckpt_dir))
+                time.sleep(wait_second)
+                total_time += 30
+                if total_time > args.max_waiting_mins * 60 and (first_eval is False):
+                    break
+                continue
 
-        # load checkpoint
-        train_utils.load_checkpoint(model, filename = cur_ckpt)
+            total_time = 0
+            first_eval = False
 
-        # start evaluation
-        cur_result_dir = os.path.join(root_result_dir, 'epoch_%s' % cur_epoch_id, cfg.TEST.SPLIT)
-        tb_dict = eval_one_epoch(model, test_loader, cur_epoch_id, cur_result_dir, logger, wandb_logger, args)
+            # load checkpoint
+            train_utils.load_checkpoint(model, filename = cur_ckpt)
 
-        step = int(float(cur_epoch_id))
-        if step == float(cur_epoch_id):
-            for key, val in tb_dict.items():
-                tb_log.add_scalar(key, val, step)
+            # start evaluation
+            cur_result_dir = os.path.join(root_result_dir, 'epoch_%s' % cur_epoch_id, cfg.TEST.SPLIT)
+            tb_dict = eval_one_epoch(model, test_loader, cur_epoch_id, cur_result_dir, logger, wandb_logger, args)
 
-        # record this epoch which has been evaluated
-        with open(ckpt_record_file, 'a') as f:
-            print('%s' % cur_epoch_id, file = f)
-        logger.info('Epoch %s has been evaluated' % cur_epoch_id)
+            step = int(float(cur_epoch_id))
+            if step == float(cur_epoch_id):
+                for key, val in tb_dict.items():
+                    tb_log.add_scalar(key, val, step)
 
-        if args.debug:
-            break
+            # record this epoch which has been evaluated
+            with open(ckpt_record_file, 'a') as f:
+                print('%s' % cur_epoch_id, file = f)
+            logger.info('Epoch %s has been evaluated' % cur_epoch_id)
+
+            if args.debug:
+                break
 
 
-def create_dataloader(logger, args):
+def create_dataloader(logger, args, corruption_directory=None):
     mode = 'TEST' if args.test else 'EVAL'
     DATA_PATH = os.path.join('/ws/', 'data')
 
     # create dataloader
-    test_set = KittiRCNNDataset(root_dir = DATA_PATH, dataset=args.dataset, augmix = args.augmix, npoints = cfg.RPN.NUM_POINTS, split = cfg.TEST.SPLIT, mode = mode,
+    test_set = KittiRCNNDataset(root_dir = DATA_PATH, dataset=args.dataset, augmix=args.augmix, npoints = cfg.RPN.NUM_POINTS, split = cfg.TEST.SPLIT, mode = mode,
                                 random_select = args.random_select,
                                 rcnn_eval_roi_dir = args.rcnn_eval_roi_dir,
                                 rcnn_eval_feature_dir = args.rcnn_eval_feature_dir,
                                 classes = cfg.CLASSES,
-                                logger = logger)
+                                logger = logger,
+                                corruption_test = args.corruption_test,
+                                corruption_directory = corruption_directory)
 
     test_loader = DataLoader(test_set, batch_size = args.batch_size, shuffle = False, pin_memory = True,
                              num_workers = args.workers, collate_fn = test_set.collate_batch)
 
     return test_loader
+
