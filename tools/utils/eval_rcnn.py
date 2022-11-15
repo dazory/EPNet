@@ -851,7 +851,7 @@ def repeat_eval_ckpt(root_result_dir, ckpt_dir, wandb_logger, args):
 
     # create dataloader & network
     if args.corruption_test == True:
-        corruption_list = ['gaussian_noise', 'shot_noise', 'shot_noise', 'defocus_blur', 'glass_blur', 'motion_blur', 'zoom_blur', 'snow',
+        corruption_list = ['gaussian_noise', 'shot_noise', 'impulse_noise', 'defocus_blur', 'glass_blur', 'motion_blur', 'zoom_blur', 'snow',
                            'frost', 'fog', 'brightness', 'contrast', 'elastic_transform', 'pixelate', 'jpeg_compression']
         severity = ['1','2','3','4','5']
 
