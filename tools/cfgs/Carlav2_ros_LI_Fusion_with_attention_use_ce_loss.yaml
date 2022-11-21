@@ -186,7 +186,7 @@ TRAIN:
 TEST:
     SPLIT: val #test #test #val #test #val #test #val
     RPN_PRE_NMS_TOP_N: 9000 #9000
-    RPN_POST_NMS_TOP_N: 100 #100
+    RPN_POST_NMS_TOP_N:  50 #
     RPN_NMS_THRESH: 0.8
     RPN_DISTANCE_BASED_PROPOSE: True
 

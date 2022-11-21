@@ -478,7 +478,7 @@ def eval_one_epoch_joint(model, dataloader, epoch_id, result_dir, logger, wandb_
 
     logger.info('---- EPOCH %s JOINT EVALUATION ----' % epoch_id)
     logger.info('==> Output file: %s' % result_dir)
-    model.eval()
+
 
     thresh_list = [0.1, 0.3, 0.5, 0.7, 0.9]
     total_recalled_bbox_list, total_gt_bbox = [0] * 5, 0
@@ -779,6 +779,8 @@ def eval_single_ckpt(root_result_dir, args):
     num_list = re.findall(r'\d+', args.ckpt) if args.ckpt is not None else []
     epoch_id = num_list[-1] if num_list.__len__() > 0 else 'no_number'
     root_result_dir = os.path.join(root_result_dir, 'epoch_%s' % epoch_id, cfg.TEST.SPLIT)
+
+
     if args.test:
         root_result_dir = os.path.join(root_result_dir, 'test_mode')
 
@@ -874,17 +876,25 @@ def repeat_eval_ckpt(root_result_dir, ckpt_dir, wandb_logger, args):
 
     total_time = 0
     first_eval = True
+    eval_done = False
     while True:
-        # check whether there is checkpoint which is not evaluated
-        cur_epoch_id, cur_ckpt = get_no_evaluated_ckpt(ckpt_dir, ckpt_record_file, args)
-        if cur_epoch_id == -1 or int(float(cur_epoch_id)) < args.start_epoch:
-            wait_second = 30
-            print('Wait %s second for next check: %s' % (wait_second, ckpt_dir))
-            time.sleep(wait_second)
-            total_time += 30
-            if total_time > args.max_waiting_mins * 60 and (first_eval is False):
+        if args.cur_ckpt is not '':
+            if eval_done:
                 break
-            continue
+            cur_epoch_id = 50
+            cur_ckpt = args.cur_ckpt
+            eval_done = True
+        else:
+            # check whether there is checkpoint which is not evaluated
+            cur_epoch_id, cur_ckpt = get_no_evaluated_ckpt(ckpt_dir, ckpt_record_file, args)
+            if cur_epoch_id == -1 or int(float(cur_epoch_id)) < args.start_epoch:
+                wait_second = 30
+                print('Wait %s second for next check: %s' % (wait_second, ckpt_dir))
+                time.sleep(wait_second)
+                total_time += 30
+                if total_time > args.max_waiting_mins * 60 and (first_eval is False):
+                    break
+                continue
 
         total_time = 0
         first_eval = False

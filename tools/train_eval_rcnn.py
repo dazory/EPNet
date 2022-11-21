@@ -20,7 +20,7 @@ import tools.train_utils.train_utils as train_utils
 from tools.train_utils.fastai_optim import OptimWrapper
 from tools.train_utils import learning_schedules_fastai as lsf
 
-import wandb
+# import wandb
 from tools.utils.wandb_logger import WandbLogger
 from tools.utils.eval_rcnn import repeat_eval_ckpt, eval_single_ckpt
 from thirdparty.dscv.utils.param_manager import ParamManager

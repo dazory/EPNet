@@ -33,6 +33,7 @@ parser.add_argument('--cur_ckpt', type = str, default = '', help = 'specify the 
 parser.add_argument("--eval_mode", type = str, default = 'rpn', required = True, help = "specify the evaluation mode")
 
 parser.add_argument('--eval_all', action = 'store_true', default = False, help = 'whether to evaluate all checkpoints')
+parser.add_argument('--eval_ros', action = 'store_true', default = False, help = 'evaluation to ROS')
 parser.add_argument('--test', action = 'store_true', default = False, help = 'evaluate without ground truth')
 parser.add_argument("--ckpt", type = str, default = None, help = "specify a checkpoint to be evaluated")
 parser.add_argument("--rpn_ckpt", type = str, default = None,
@@ -99,17 +100,20 @@ if __name__ == "__main__":
         cfg.RCNN.ENABLED = False
         root_result_dir = os.path.join('/ws/data/', 'output', 'rpn', cfg.TAG)
         ckpt_dir = os.path.join('../', 'output', 'rpn', cfg.TAG, 'ckpt')
+
     elif args.eval_mode == 'rcnn':
         cfg.RCNN.ENABLED = True
         cfg.RPN.ENABLED = cfg.RPN.FIXED = True
         root_result_dir = os.path.join('../', 'output', 'rcnn', cfg.TAG)
         ckpt_dir = os.path.join('../', 'output', 'rcnn', cfg.TAG, 'ckpt')
+
     elif args.eval_mode == 'rcnn_online':
         cfg.RCNN.ENABLED = True
         cfg.RPN.ENABLED = True
         cfg.RPN.FIXED = False
-        root_result_dir = os.path.join('../', 'output', 'rcnn', cfg.TAG)
-        ckpt_dir = os.path.join('../', 'output', 'rcnn', cfg.TAG, 'ckpt')
+        root_result_dir = os.path.join('../', 'output', 'rcnn', cfg.TAG) # no_use
+        ckpt_dir = os.path.join('../', 'output', 'rcnn', cfg.TAG, 'ckpt') # may be no use
+
     elif args.eval_mode == 'rcnn_offline':
         cfg.RCNN.ENABLED = True
         cfg.RPN.ENABLED = False
@@ -131,5 +135,9 @@ if __name__ == "__main__":
         if args.eval_all:
             assert os.path.exists(ckpt_dir), '%s' % ckpt_dir
             repeat_eval_ckpt(root_result_dir, ckpt_dir, wandb_logger, args)
+        elif args.eval_ros:
+            # repeat_eval_ckpt(root_result_dir, ckpt_dir, wandb_logger, args)
+            eval_single_ckpt(root_result_dir, args)
         else:
+
             eval_single_ckpt(root_result_dir, args)
