@@ -25,7 +25,13 @@ from lib.config import cfg, cfg_from_file, cfg_from_list
 import torch.nn.functional as F
 import lib.utils.kitti_utils as kitti_utils
 import lib.utils.iou3d.iou3d_utils as iou3d_utils
+from epnet_corruption import gen_corruption_v2, gen_corruption
+import torchvision
+from torch_augmentation import *
+import cv2
 
+
+# from PIL import Image
 np.random.seed(1024)  # set the same seed
 
 parser = argparse.ArgumentParser(description="arg parser")
@@ -102,7 +108,16 @@ class EPNetCarla:
 
         self.mean = torch.tensor([0.485, 0.456, 0.406]).cuda()
         self.std = torch.tensor([0.229, 0.224, 0.225]).cuda()
+
         self.npoints = 16384
+
+        self.transform_list = torchvision.transforms.Compose(
+            [torchvision.transforms.ToPILImage(),
+             torchvision.transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5),
+             torchvision.transforms.ToTensor(),
+             torchvision.transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+
+             ])
 
         # self.input_deque = deque(maxlen=10000)
         # self.rate = rospy.Rate(100)
@@ -432,12 +447,26 @@ class EPNetCarla:
             output_start = rospy.Time.now().to_sec()
             self.output_num += 1
             cv_image = np.frombuffer(img.data, dtype=np.uint8).reshape(img.height, img.width, -1)
-            im = torch.as_tensor(cv_image).cuda()[:, :, :3].type(torch.float32)
+
+            # may be corruption ?
+
+            # im = torch.as_tensor(cv_image).cuda()[:, :, :3].type(torch.float32)
+            # print("im. shape: ", im.shape)
+            im = self.transform_list(cv_image[:, :, :3]).cuda()
+            im = im.permute(1, 2, 0)
+            ######## modified 1213 start ########
+
+            #
+            #
             im = im[:, :, [2, 1, 0]]
-            im = im / 255.0
-            im = im - self.mean
-            im = im / self.std
+            # im = im / 255.0
+            # im = im - self.mean
+            # im = im / self.std
+
+            ######## modified 1213 end ########
+
             imback = im
+            print("im. shape: ", im.shape)
 
             img_shape = (im.shape[0], im.shape[1], 3)
 
@@ -519,10 +548,10 @@ class EPNetCarla:
         self.lidar_seq += 1
 
         if self.data_flag == 0:
-            self.data_flag = 1
             lidar_numpy = np.frombuffer(lidar.data, dtype=np.float32)
             lidar_tensor = torch.as_tensor(lidar_numpy).cuda().reshape(-1, 4)
             self.input_data = {'pts_input': lidar_tensor}
+            self.data_flag = 1
 
         elif self.data_flag == 1:
             lidar_numpy = np.frombuffer(lidar.data, dtype=np.float32)
@@ -547,8 +576,33 @@ class EPNetCarla:
 
                 pts_input = input_data['pts_input'].unsqueeze(dim=0)
                 pts_origin_xy = input_data['pts_origin_xy'].unsqueeze(dim=0)
-                img = input_data['img'].permute(2, 0, 1).unsqueeze(dim=0)
-                input_data = dict(pts_input=pts_input, pts_origin_xy=pts_origin_xy, img=img)
+                # img = input_data['img'].permute(2, 0, 1).unsqueeze(dim=0)
+                img = input_data['img'].permute(2, 0, 1)
+                # img_blurred = torchvision.transforms.GaussianBlur(3)(img)
+                img_blurred = gaussian_blur(img, [3,3], None)
+
+
+                # transform_list = torchvision.transforms.Compose(
+                #     [torchvision.transforms.ToPILImage(),
+                #     torchvision.transforms.ColorJitter(brightness=0.5, contrast = 0.5, saturation=0.3),
+                #      torchvision.transforms.ToTensor()
+                #      ])
+                # img_jitter = transform_list(img.cpu().numpy().)
+
+
+                # just for vis
+                # orig_img = torch_to_opencv(img)
+                # cvimg_blurred = torch_to_opencv(img_blurred)
+                #
+                # cv2.imshow('orig', orig_img)
+                # cv2.imshow('blurred', cvimg_blurred)
+                # cv2.waitKey()
+                # cv2.destroyAllWindows()
+
+                img_blurred = img_blurred.unsqueeze(dim=0)
+
+                # input_data = dict(pts_input=pts_input, pts_origin_xy=pts_origin_xy, img=img)
+                input_data = dict(pts_input=pts_input, pts_origin_xy=pts_origin_xy, img=img_blurred)
                 print(f"EVAL: {pts_input.shape}, {pts_origin_xy.shape}, {img.shape}")
 
                 ret_dict = self.model(input_data)
