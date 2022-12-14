@@ -42,8 +42,9 @@ def get_image_num_channels(img: Tensor) -> int:
 
 
 def _max_value(dtype: torch.dtype) -> int:
+    print(dtype)
     if dtype == torch.uint8:
-        return 255
+        return 1
     elif dtype == torch.int8:
         return 127
     elif dtype == torch.int16:
@@ -156,6 +157,7 @@ def rgb_to_grayscale(img: Tensor, num_output_channels: int = 1) -> Tensor:
 
     if img.shape[-3] == 3:
         r, g, b = img.unbind(dim=-3)
+        # b, g, r = img.unbind(dim=-3) # plz ...
         # This implementation closely follows the TF one:
         # https://github.com/tensorflow/tensorflow/blob/v2.3.0/tensorflow/python/ops/image_ops_impl.py#L2105-L2138
         l_img = (0.2989 * r + 0.587 * g + 0.114 * b).to(img.dtype)
@@ -981,8 +983,8 @@ def random_aug(img, rand_num):
     elif rand_num == 2:
         ret_img = adjust_brightness(img, 0.5)
     elif rand_num == 3:
-        ret_img = adjust_contrast(img, 0.5)
+        ret_img = adjust_gamma(img, 0.5)
     else:
-        ret_img = adjust_gamma(img, 0.3)
+        ret_img = adjust_contrast(img, 0.5)
 
     return ret_img

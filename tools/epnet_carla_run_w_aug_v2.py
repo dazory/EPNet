@@ -570,23 +570,12 @@ class EPNetCarla:
                 # img = input_data['img'].permute(2, 0, 1).unsqueeze(dim=0)
                 img = input_data['img'].permute(2, 0, 1)
 
-
-                rand_num = torch.randint(0,5, (1, ))
-                # img_blurred = gaussian_blur(img, [3,3], None)
-                img_blurred = random_aug(img, rand_num)
-
-                # img_bright = adjust_brightness(img, 0.6)
-
-                # orig_img = torch_to_opencv(img)
-                # cvimg_blurred = torch_to_opencv(img_blurred)
-                # cvimg_bright = torch_to_opencv(img_bright)
-                #
-                # cv2.imshow('orig', orig_img)
-                # cv2.imshow('blurred', cvimg_blurred)
-                # # cv2.imshow('bright', cvimg_bright)
-                # cv2.waitKey()
-                # cv2.destroyAllWindows()
-                #
+                '''
+                rand_num == 1 -> gaussian_blur
+                rand_num == 2 -> adjust_brightness
+                rand_num == 3 -> adjust_contrast
+                '''
+                img_blurred = random_aug(img, 1)
                 img_blurred = img_blurred.unsqueeze(dim=0)
 
                 # input_data = dict(pts_input=pts_input, pts_origin_xy=pts_origin_xy, img=img)
